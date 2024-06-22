@@ -1,0 +1,8 @@
+instance_manager/misc/assume-role-output.json
+azure_spot_prices.csv
+azure_vm_sizes.csv
+spot_prices.csv
+response.json
+total_spot_prices.csv
+instance_manager/misc/rejuvenation_eval/misc/assume-role-output.json
+*.pyc

@@ -1,0 +1,22 @@
+{
+    "REJUVENATION_PERIOD" : 30,
+    "INITIAL_EXPERIMENT_INDEX" : 1,
+    "PROXY_COUNT": 5,
+    "MIN_PROXY_COUNT": 3,
+    "MAX_PROXY_COUNT": 7,
+    "MIN_VCPU" : 1,
+    "MAX_VCPU" : 2,
+    "MIN_COST" : 0.05,
+    "MAX_COST" : 0.3,
+    "PROXY_IMPL" : "snowflake",
+    "controller-IP": "192.16.6.66",
+    "launch-template-arm64": "lt-0abc44b6c12879596",
+    "launch-template-x86_64": "lt-04d9c8ac5d00a2078",
+    "mode": "instance",
+    "multi_NIC": false,
+    "dir": "misc/logs/",
+    "regions": ["us-east-1"],
+    "batch_size": 20,
+    "wait_time_after_create": 30,
+    "wait_time_after_nic": 60
+}

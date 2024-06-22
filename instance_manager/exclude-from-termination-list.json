@@ -1,0 +1,14 @@
+{
+    "snowflake_broker" : "i-0ed1751be68da8f24",
+    "snowflake_proxy1" : "i-03f78eddf47dd9fe4",
+    "snowflake_proxy2" : "i-022fbe5bfc874ecef",
+    "spotproxy_controller" : "i-035f88ca820e399e7",
+    "spotproxy_nat" : "i-0975320cbe3a681df",
+    "spotproxy_service" : "i-0dd2ca9d91838f3c8",
+    "spotproxy_client" : "i-0c7adc535b262d69e",
+    "i-07f4f77a621542a19" : "i-07f4f77a621542a19",
+    "spotproxy_misc": "i-0af84b91480c8c737",
+    "controller-do-not-delete": "i-08cdba0c527574ecb",
+    "main-proxy-do-not-delete" : "i-0946b5c61bad263aa",
+    "data-collector-do-not-delete" : "i-025ba8731a5bbd9b5"
+}
