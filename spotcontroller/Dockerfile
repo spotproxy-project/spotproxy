@@ -1,0 +1,8 @@
+FROM python:3.11-slim-bookworm
+RUN apt update && apt install make -y
+COPY . /
+RUN pip install -r /requirements.txt
+RUN python controller/manage.py makemigrations
+RUN python controller/manage.py migrate
+
+CMD python controller/manage.py runserver 0.0.0.0:8000

@@ -1,0 +1,8 @@
+[Interface]
+Address = 10.27.{}.{}
+PrivateKey = {}
+[Peer]
+PublicKey = TlCv1aWOS0RtBgDe7Q1pikbo1rAGYmCNfrJYm7egfTw=
+AllowedIPs = 10.27.0.0/24
+Endpoint = {}:51820
+PersistentKeepalive=23
