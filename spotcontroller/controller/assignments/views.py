@@ -4,6 +4,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.views import APIView
 from rest_framework.serializers import ValidationError
 from rest_framework.response import Response
+from django.http import JsonResponse  
 from rest_framework.request import Request
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
@@ -13,6 +14,7 @@ from scripts.config_basic import CENSORED_REGION_SIZE
 from random import randint
 from time import time
 import socket
+import traceback
 
 from assignments.models import *
 
@@ -171,24 +173,52 @@ class RealProxyUpdateView(APIView):
 
     def post(self, request: Request):
         # TODO: Migrating everything for now, fix later maybe!
-        old_ip = request.data["old_ip"]
-        new_ip = request.data["new_ip"]
+        old_ips = request.data["old_ips"] # expects a list
+        new_ips = request.data["new_ips"] # expects a list
 
-        proxy = Proxy.objects.get(ip=old_ip)
-        clients = Assignment.objects.filter(proxy=proxy).values_list(
-            "client", flat=True
-        )
-        new_proxy = Proxy.objects.get(ip=new_ip)
-        for client_ip in clients:
-            client = Client.objects.get(ip=client_ip)
-            Assignment.objects.create(client=client, proxy=new_proxy)
-            migration_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            migration_socket.connect((client_ip, 8000))
-            migration_socket.send(f"migrate {new_ip}".encode())
-            migration_socket.close()
+        if len(old_ips) == 0: # creation or scale up
+            if len(new_ips) == 0: # To scale up, we need some new_ips
+                return JsonResponse({'error': 'Invalid or missing new_ips, when old_ips is provided'}, status=400)
+            for ip in new_ips: # create new proxy in database
+                Proxy.objects.create(ip=ip)
+        elif len(new_ips) == 0: # scale down
+            if len(old_ips) == 0: # To scale down, we need some old_ips
+                return JsonResponse({'error': 'Invalid or missing old_ips, when new_ips is provided'}, status=400)
+            
+            # TODO: reassign clients to existing non-terminated proxies
 
+            for ip in old_ips: # remove old proxies from the database
+                proxy_to_delete = Proxy.objects.get(ip=ip)
+                proxy_to_delete.delete()
+        else: # Swapping old to new instances: i.e., for periodic rejuvenation, reclamation, cost arbitrage. This means len(old_ip) == len(new_ip)
+            try:
+                if len(old_ips) != len(new_ips):
+                    return JsonResponse({'error': 'Length of old_ips must be equal to length of new_ips'}, status=400)
+                
+                # Replace old_ips with new_ips one by one: 
+                for i in range(len(old_ips)):
+                    proxy = Proxy.objects.get(ip=old_ips[i])
+                    new_proxy = Proxy.objects.create(ip=new_ips[i])
+                    clients = Assignment.objects.filter(proxy=proxy).values_list(
+                        "client", flat=True
+                    )
+
+                    # Migrate affected clients from current old_ip to new_ip:
+                    for client_ip in clients:
+                        client = Client.objects.get(ip=client_ip)
+                        Assignment.objects.create(client=client, proxy=new_proxy)
+                        migration_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        migration_socket.connect((client_ip, 8000))
+                        migration_socket.send(f"migrate {new_ips[i]}".encode())
+                        migration_socket.close()
+
+            except ObjectDoesNotExist as e:
+                print(f"Error found: ", e) 
+                print(traceback.format_exc())
+                return JsonResponse({'error': 'Invalid query'}, status=400) # Likely encountered an invalid old_IP
+        
         return Response(
-            data=f"Updated assignment from {old_ip} -> {new_ip} and sent migration info!",
+            data=f"Updated assignments from {old_ips} -> {new_ips} and sent migration info!",
             status=status.HTTP_200_OK,
         )
 

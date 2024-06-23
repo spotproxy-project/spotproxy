@@ -11,8 +11,8 @@ Refer to the following section to learn how to use the controller or run the sim
 Build the docker file ```Dockerfile``` and run it using:
 
 ```sh
-    docker build -t controller-image -f Dockerfile .
-    docker run -it --cap-add=NET_ADMIN --name=controller controller-image
+    sudo docker build -t controller-image -f Dockerfile .
+    sudo docker run -it -p 8000:8000 --cap-add=NET_ADMIN --name=controller controller-image
 ```
 
 ### Running the simulation
