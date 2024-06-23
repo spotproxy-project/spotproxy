@@ -636,7 +636,7 @@ def print_create_fleet_response(ec2, response):
     all_instance_details = get_specific_instances_with_fleet_id_tag(ec2, response['FleetId']) 
     print(all_instance_details)
 
-def create_initial_fleet_and_periodic_rejuvenation_thread(ec2, input_args):
+def create_initial_fleet_and_periodic_rejuvenation_thread(ec2, input_args, quick_test=False):
 
     # Extract required input args:
     REJUVENATION_PERIOD = int(input_args['REJUVENATION_PERIOD']) # in seconds
@@ -698,7 +698,9 @@ def create_initial_fleet_and_periodic_rejuvenation_thread(ec2, input_args):
             # live_ip_rejuvenation(initial_ec2, is_UM, REJUVENATION_PERIOD, PROXY_COUNT, EXPERIMENT_DURATION, PROXY_IMPL, filter=filter, tag_prefix=tag_prefix, wait_time_after_create=wait_time_after_create, print_filename=filename)
             rejuvenator = rejuvenation.LiveIPRejuvenator(initial_region, launch_templates, input_args, filter, tag_prefix, filename)
 
-        thread = threading.Thread(target=rejuvenator.rejuvenate)
+        thread = threading.Thread(target=rejuvenator.rejuvenate, kwargs={
+            "quick_test": quick_test
+        })
         thread.start()
         threads.append(thread)
 
@@ -846,6 +848,11 @@ def get_instance_row_with_supported_architecture(ec2, prices, supported_architec
 if __name__ == '__main__':
     input_args_filename = sys.argv[1]
     input_args = parse_input_args(input_args_filename)
+
+    if len(sys.argv) > 2:
+        if sys.argv[2] == "simple-test":
+            ec2, ce = choose_session(region=region)
+            threads = create_initial_fleet_and_periodic_rejuvenation_thread(ec2, input_args, quick_test=True)
 
     ec2, ce = choose_session(region=region)
     

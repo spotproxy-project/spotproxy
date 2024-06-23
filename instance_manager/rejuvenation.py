@@ -145,7 +145,7 @@ class InstanceRejuvenator(Rejuvenator):
         """Initializes the InstanceRejuvenator object."""
         super().__init__(initial_region, launch_templates, input_args, filter, tag_prefix, print_filename)
 
-    def rejuvenate(self):
+    def rejuvenate(self, quick_test=False):
         """Rejuvenates the instances."""
         """
             Runs in a loop. 
@@ -186,7 +186,7 @@ class InstanceRejuvenator(Rejuvenator):
         
         # Continue with rejuvenation:
         rejuvenation_index = 2
-        while True:
+        while True and quick_test == False:
             # refresh_credentials() # assume usage of permanent credentials for now
             # print("Begin Rejuvenation count: ", rejuvenation_index)
             self.print_stdout_and_filename("Begin Rejuvenation count: " + str(rejuvenation_index), self.print_filename)
@@ -333,7 +333,7 @@ class LiveIPRejuvenator(Rejuvenator):
         """Initializes the LiveIPRejuvenator object."""
         super().__init__(initial_region, launch_templates, input_args, filter, tag_prefix, print_filename)
 
-    def rejuvenate(self):
+    def rejuvenate(self, quick_test=False):
         """Rejuvenates the live IPs."""
     # def live_ip_rejuvenation_safe(initial_ec2_region, is_UM, rej_period, proxy_count, exp_duration, proxy_impl, filter=None, tag_prefix="liveip-expX", wait_time_after_create=15, wait_time_after_nic=30, print_filename="data/output-general.txt"):
         try:
