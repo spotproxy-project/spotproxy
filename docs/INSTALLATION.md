@@ -1,7 +1,8 @@
 
 
-
 ## Basic test:
+
+- Create a security group that allows all ports for now: TCP
 
 This script does the following:
 

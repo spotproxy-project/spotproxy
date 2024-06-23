@@ -74,7 +74,7 @@ if __name__ == "__main__":
     print(f"Nat server is listening on {pub_ip}:{port}")
 
     choice = int(
-        input("input 0 for echo, 1 for wikipedia, 2 for beeg file, 3 for kv: ").strip()
+        input("input 0 for echo, 1 for NAT server, 2 for beeg file, 3 for kv: ").strip()
     )
 
     if choice == 0:
