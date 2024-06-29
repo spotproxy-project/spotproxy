@@ -1,6 +1,8 @@
 import api
 import time
 import math
+import json
+import requests
 
 class Rejuvenator:
     """Abstract class for rejuvenators."""
@@ -18,6 +20,7 @@ class Rejuvenator:
         # Extract required input args:
         self.REJUVENATION_PERIOD = int(input_args['REJUVENATION_PERIOD']) # in seconds
         self.regions = input_args['regions']
+        self.controller_ip = input_args['controller-IP']
         self.PROXY_COUNT = int(input_args['PROXY_COUNT']) # aka fleet size 
         self.PROXY_IMPL = input_args['PROXY_IMPL'] # wireguard | snowflake
         self.batch_size = input_args['batch_size'] # number of instances to create per thread. Currently, we assume this is completely divisible by PROXY_COUNT.
@@ -36,6 +39,38 @@ class Rejuvenator:
         print(string)
         with open(filename, 'a') as file:
             file.write(string + "\n")
+
+    def extract_ips_and_notify_controller(self, instance_list_old, instance_list):
+        old_ips = []
+        new_ips = []
+        for instance_details in instance_list:
+            for nic in instance_details['NICs']:
+                new_ips.append(nic[-1])
+        for instance_details in instance_list_old:
+            for nic in instance_details['NICs']:
+                old_ips.append(nic[-1])
+        self.notify_controller(old_ips, new_ips)
+
+    def notify_controller(self, old_ips, new_ips):
+        url = "http://{}:8000/assignments/postsingleupdate".format(self.controller_ip)
+        payload = {
+            "old_ips": old_ips,
+            "new_ips": new_ips
+        }
+        # Send the POST request
+        headers = {'Content-Type': 'application/json'}
+        response = requests.post(url, data=json.dumps(payload), headers=headers)
+
+        if response.status_code == 200:
+            self.print_stdout_and_filename("Request was successful", self.print_filename)
+            self.print_stdout_and_filename("Response: {}".format(response.json()), self.print_filename)
+            return True
+        else:
+            self.print_stdout_and_filename("Failed to send POST request", self.print_filename)
+            self.print_stdout_and_filename("Status code: {}".format(response.status_code), self.print_filename)
+            self.print_stdout_and_filename("Response: {}".format(response.text), self.print_filename)
+            # Raise error:
+            raise Exception("Failed to send POST request. Status code: {}. Response: {}".format(response.status_code, response.text))
 
     def create_fleet(self, initial_ec2):
         """
@@ -179,6 +214,9 @@ class InstanceRejuvenator(Rejuvenator):
             if len(failed_ips) != 0:
                 self.print_stdout_and_filename("Failed to ssh/ping into instances: " + str(failed_ips), self.print_filename)
                 assert len(failed_ips) == 0, "Failed to ssh/ping into instances: " + str(failed_ips)
+
+        # Notify controller:
+        self.extract_ips_and_notify_controller([], instance_list_prev)
         
         # Sleep for rej_period:
         self.print_stdout_and_filename("Sleeping for {} seconds until next rejuvenation period..".format(self.REJUVENATION_PERIOD), self.print_filename)
@@ -207,6 +245,9 @@ class InstanceRejuvenator(Rejuvenator):
                 if len(failed_ips) != 0:
                     self.print_stdout_and_filename("Failed to ssh/ping into instances: " + str(failed_ips), self.print_filename)
                     assert len(failed_ips) == 0, "Failed to ssh/ping into instances: " + str(failed_ips)
+
+            # Notify controller:
+            self.extract_ips_and_notify_controller(instance_list_prev, instance_list)
 
             # Terminate fleet:
             # Chunk list into groups of 100: Maybe work on this next time..
@@ -549,7 +590,8 @@ class LiveIPRejuvenator(Rejuvenator):
                 eip = api.get_eip_id_from_allocation_response(api.allocate_address(ec2))
                 # print(api.associate_address(ec2, instance, eip, nic))
                 assoc_id = api.get_association_id_from_association_response(api.associate_address(ec2, instance, eip, nic))
-                instance_details['NICs'].append((nic, eip, assoc_id))
+                original_pub_ip = api.get_public_ip_address(ec2, eip)
+                instance_details['NICs'].append((nic, eip, assoc_id, original_pub_ip))
 
                 # Tag NICs and EIPs:
                 nic_tag = instance_tag + "-nic{}".format(str(index2))
@@ -567,4 +609,4 @@ class LiveIPRejuvenator(Rejuvenator):
     
     # def handle_autoscaling(self):
     #     """Handles autoscaling of resources."""
-    #     super().handle_autoscaling()
+    #     super().handle_autoscaling()  

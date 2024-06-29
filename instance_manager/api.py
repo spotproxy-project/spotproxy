@@ -568,10 +568,7 @@ def ping_instances(ec2, nic_list, multi_NIC=True, not_fixed=True):
     # time.sleep(wait_time)
     if not_fixed: # only ping the original NIC
         nic_details = nic_list[-1] # this is the position of the original_nic, since we append it last..
-        if multi_NIC:
-            ip = get_public_ip_address(ec2, nic_details[1])
-        else:
-            ip = nic_details[1]
+        ip = nic_details[-1]
         response = ping(ip, backoff_time, trials)
         if response == 0:
             print(f"{ip} is up!")
@@ -581,10 +578,7 @@ def ping_instances(ec2, nic_list, multi_NIC=True, not_fixed=True):
             failed_ips.append(ip)
     else: # ping all NICs
         for nic_details in nic_list:
-            if multi_NIC:
-                ip = get_public_ip_address(ec2, nic_details[1])
-            else:
-                ip = nic_details[1]
+            ip = nic_details[-1]
             response = ping(ip, backoff_time, trials)
             if response == 0:
                 print(f"{ip} is up!")
