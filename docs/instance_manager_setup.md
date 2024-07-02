@@ -10,7 +10,7 @@ conda activate spotproxy-im
 
 4. Initiate the instance manager
 - CD into the `instance_manager` directory. 
-- Modify the `launch-template` fields for both `input-args-snowflake.json` and `input-args-wireguard.json` accordingly. 
+- Modify the `launch-template` fields for both `input-args-snowflake.json` and `input-args-wireguard.json` accordingly: you can leave this untouched for now. 
 - Run the commands in the following sections as needed. 
 
 ## Artifact evaluation Experiment E1 Minimal working example:

@@ -568,10 +568,7 @@ def ping_instances(ec2, nic_list, multi_NIC=True, not_fixed=True):
     # time.sleep(wait_time)
     if not_fixed: # only ping the original NIC
         nic_details = nic_list[-1] # this is the position of the original_nic, since we append it last..
-        if multi_NIC:
-            ip = get_public_ip_address(ec2, nic_details[1])
-        else:
-            ip = nic_details[1]
+        ip = nic_details[-1]
         response = ping(ip, backoff_time, trials)
         if response == 0:
             print(f"{ip} is up!")
@@ -581,10 +578,7 @@ def ping_instances(ec2, nic_list, multi_NIC=True, not_fixed=True):
             failed_ips.append(ip)
     else: # ping all NICs
         for nic_details in nic_list:
-            if multi_NIC:
-                ip = get_public_ip_address(ec2, nic_details[1])
-            else:
-                ip = nic_details[1]
+            ip = nic_details[-1]
             response = ping(ip, backoff_time, trials)
             if response == 0:
                 print(f"{ip} is up!")
@@ -663,12 +657,9 @@ def create_initial_fleet_and_periodic_rejuvenation_thread(ec2, input_args, quick
 
     launch_templates = []
 
-    if PROXY_IMPL == 'snowflake':
-        # launch_template_arm64 = input_args['launch-template-arm64']
-        launch_templates.append(input_args['launch-template-x86_64'])
-    elif PROXY_IMPL == 'wireguard':
+    if PROXY_IMPL == 'snowflake' or PROXY_IMPL == 'wireguard':
         # launch_templates.extend([input_args['launch-template-main'], input_args['launch-template-side'], input_args['launch-template-peer']]) # main: is the first (and is a single) proxy to connect to, and peer is a client. side is the rest of the proxies. TODO: add creation of a single main and peer later here in this script. 
-        launch_templates.append(input_args['launch-template-side'])
+        launch_templates.append(input_args['launch-template'])
     else:
         raise Exception("Invalid proxy implementation: " + PROXY_IMPL)  
 

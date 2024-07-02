@@ -141,7 +141,7 @@ def efficacy_test_bulk_download(host, port, migration, test_duration=300):
     log(f"test is done, total time was: {time() - start_time} secs")
 
 
-def efficacy_test_wikipedia(host, port, migration, test_duration=300):
+def efficacy_test_wikipedia(host, port, migration, test_duration=999999):
     last_ack = -1
     global client_socket
     client_socket.connect((host, port))
