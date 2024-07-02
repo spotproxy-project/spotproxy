@@ -98,7 +98,10 @@ class Proxy:
 
         while True:
             broker_socket, broker_address = dock_socket.accept()
+            
             data = broker_socket.recv(1024)
+
+            print(f'INFO: got message from {broker_address}: {data.decode()}')
 
             command = data.decode().strip().lower().split()
             broker_socket.close()
