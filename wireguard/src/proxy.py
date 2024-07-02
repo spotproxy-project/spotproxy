@@ -70,7 +70,7 @@ class Proxy:
 
         nat_sockets = []
         migration_time = time() - start_time
-        url = f"http://{CONTROLLER_IP_ADDRESS}:8000/assignments/postavgproxy"
+        # url = f"http://{CONTROLLER_IP_ADDRESS}:8000/assignments/postavgproxy"
 
         data = {"avg": migration_time}
 
@@ -107,4 +107,6 @@ class Proxy:
                 if len(command) > 1:
                     self.migrate(command[1])
                 else:
-                    self.migrate(f"172.17.0.{self.my_number + 1}:8089")
+                    self.migrate(f"172.17.0.{self.my_number + 1}")
+            else:
+                print('ERROR: Unknown command. Ignoring...')

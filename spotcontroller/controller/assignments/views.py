@@ -156,7 +156,8 @@ class ProxyUpdateView(APIView):
                 client = Client.objects.get(ip=client_ip)
                 Assignment.objects.create(client=client, proxy=new_proxy)
             migration_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            migration_socket.connect((HARDCODED_CLIENT_IP, 8000))
+            # This endpoint 
+            migration_socket.connect((proxy_ip, 8089))
             migration_socket.send(f"migrate {new_proxy_ip}".encode())
             migration_socket.close()
 
@@ -197,20 +198,21 @@ class RealProxyUpdateView(APIView):
                 
                 # Replace old_ips with new_ips one by one: 
                 for i in range(len(old_ips)):
-                    proxy = Proxy.objects.get(ip=old_ips[i])
-                    new_proxy = Proxy.objects.create(ip=new_ips[i])
+                    proxy_ip = old_ips[i]
+                    proxy = Proxy.objects.get(ip=proxy_ip)
                     clients = Assignment.objects.filter(proxy=proxy).values_list(
                         "client", flat=True
                     )
-
-                    # Migrate affected clients from current old_ip to new_ip:
+                    new_proxy_ip = new_ips[i]
+                    
+                    new_proxy, _ = Proxy.objects.get_or_create(ip=new_proxy_ip)
                     for client_ip in clients:
-                        client = Client.objects.get(ip=client_ip)
+                        client, _ = Client.objects.get_or_create(ip=client_ip)
                         Assignment.objects.create(client=client, proxy=new_proxy)
-                        migration_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        migration_socket.connect((client_ip, 8000))
-                        migration_socket.send(f"migrate {new_ips[i]}".encode())
-                        migration_socket.close()
+                    migration_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    migration_socket.connect((proxy_ip, 8089))
+                    migration_socket.send(f"migrate {new_proxy_ip}".encode())
+                    migration_socket.close()
 
             except ObjectDoesNotExist as e:
                 print(f"Error found: ", e) 
