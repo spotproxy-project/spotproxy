@@ -157,7 +157,7 @@ class ProxyUpdateView(APIView):
                 Assignment.objects.create(client=client, proxy=new_proxy)
             migration_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # This endpoint 
-            migration_socket.connect((proxy_ip, 8089))
+            migration_socket.connect((proxy_ip, 8121))
             migration_socket.send(f"migrate {new_proxy_ip}".encode())
             migration_socket.close()
 
@@ -210,7 +210,7 @@ class RealProxyUpdateView(APIView):
                         client, _ = Client.objects.get_or_create(ip=client_ip)
                         Assignment.objects.create(client=client, proxy=new_proxy)
                     migration_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    migration_socket.connect((proxy_ip, 8089))
+                    migration_socket.connect((proxy_ip, 8121))
                     migration_socket.send(f"migrate {new_proxy_ip}".encode())
                     migration_socket.close()
 
