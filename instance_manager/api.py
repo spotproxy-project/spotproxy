@@ -657,12 +657,9 @@ def create_initial_fleet_and_periodic_rejuvenation_thread(ec2, input_args, quick
 
     launch_templates = []
 
-    if PROXY_IMPL == 'snowflake':
-        # launch_template_arm64 = input_args['launch-template-arm64']
-        launch_templates.append(input_args['launch-template-x86_64'])
-    elif PROXY_IMPL == 'wireguard':
+    if PROXY_IMPL == 'snowflake' or PROXY_IMPL == 'wireguard':
         # launch_templates.extend([input_args['launch-template-main'], input_args['launch-template-side'], input_args['launch-template-peer']]) # main: is the first (and is a single) proxy to connect to, and peer is a client. side is the rest of the proxies. TODO: add creation of a single main and peer later here in this script. 
-        launch_templates.append(input_args['launch-template-side'])
+        launch_templates.append(input_args['launch-template'])
     else:
         raise Exception("Invalid proxy implementation: " + PROXY_IMPL)  
 

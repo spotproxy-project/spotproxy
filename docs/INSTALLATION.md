@@ -17,7 +17,7 @@ export AWS_SECRET_ACCESS_KEY=
 ```
 
 ## Basic test:
-1. On a separate machine, ensure the AWS VM's public IP (this can be obtained for example from the AWS console) can be pinged.
+1. On a separate machine (e.g., your host machine), ensure the AWS VM's public IP (this can be obtained for example from the AWS console) can be pinged.
 ```bash
 ping <AWS-VM-PUBLIC-IP>
 ```

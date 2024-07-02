@@ -19,6 +19,7 @@ class Rejuvenator:
 
         # Extract required input args:
         self.REJUVENATION_PERIOD = int(input_args['REJUVENATION_PERIOD']) # in seconds
+        self.initial_proxy_ip = input_args['initial_proxy_ip']
         self.regions = input_args['regions']
         self.controller_ip = input_args['controller-IP']
         self.PROXY_COUNT = int(input_args['PROXY_COUNT']) # aka fleet size 
@@ -216,7 +217,18 @@ class InstanceRejuvenator(Rejuvenator):
                 assert len(failed_ips) == 0, "Failed to ssh/ping into instances: " + str(failed_ips)
 
         # Notify controller:
-        self.extract_ips_and_notify_controller([], instance_list_prev)
+        if quick_test == True:
+            pass
+        elif self.initial_proxy_ip == "" and self.initial_proxy_ip == None:
+            self.extract_ips_and_notify_controller([], instance_list_prev)
+        else:
+            # Artifact evaluation purposes:
+            assert self.PROXY_COUNT == 1, "Initial proxy IP is provided, so the proxy count must be 1."
+            new_ips = []
+            for instance_details in instance_list_prev:
+                for nic in instance_details['NICs']:
+                    new_ips.append(nic[-1])
+            self.notify_controller([self.initial_proxy_ip], new_ips)
         
         # Sleep for rej_period:
         self.print_stdout_and_filename("Sleeping for {} seconds until next rejuvenation period..".format(self.REJUVENATION_PERIOD), self.print_filename)
