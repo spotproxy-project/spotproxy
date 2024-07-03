@@ -11,7 +11,7 @@
     "PROXY_IMPL" : "wireguard",
     "controller-IP": "54.91.38.67",
     "launch-template": "lt-04fad6790051143ee",
-    "initial_proxy_ip": "44.203.148.249",
+    "initial_proxy_ip": "",
     "mode": "instance",
     "multi_NIC": false,
     "dir": "misc/logs/",

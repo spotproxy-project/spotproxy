@@ -199,7 +199,6 @@ class InstanceRejuvenator(Rejuvenator):
 
         self.print_stdout_and_filename("Begin Rejuvenation count: " + str(1), self.print_filename)
         ec2, ce = api.choose_session(region=self.initial_region)
-
         # Create fleet (with tag values as indicated above):
         instance_list_prev = self.create_fleet(ec2)
         instance_lists.extend(instance_list_prev)
@@ -219,7 +218,7 @@ class InstanceRejuvenator(Rejuvenator):
         # Notify controller:
         if quick_test == True:
             pass
-        elif self.initial_proxy_ip == "" and self.initial_proxy_ip == None:
+        elif self.initial_proxy_ip == "" or self.initial_proxy_ip == None:
             self.extract_ips_and_notify_controller([], instance_list_prev)
         else:
             # Artifact evaluation purposes:
@@ -233,7 +232,6 @@ class InstanceRejuvenator(Rejuvenator):
         # Sleep for rej_period:
         self.print_stdout_and_filename("Sleeping for {} seconds until next rejuvenation period..".format(self.REJUVENATION_PERIOD), self.print_filename)
         time.sleep(self.REJUVENATION_PERIOD)
-        
         # Continue with rejuvenation:
         rejuvenation_index = 2
         while True and quick_test == False:
