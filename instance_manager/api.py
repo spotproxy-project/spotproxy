@@ -844,10 +844,13 @@ if __name__ == '__main__':
         if sys.argv[2] == "simple-test":
             ec2, ce = choose_session(region=region)
             threads = create_initial_fleet_and_periodic_rejuvenation_thread(ec2, input_args, quick_test=True)
-
-    ec2, ce = choose_session(region=region)
-    
-    threads = create_initial_fleet_and_periodic_rejuvenation_thread(ec2, input_args)
+        else:
+            # Exit script, invalid argument:
+            print("Invalid argument: " + sys.argv[2])
+            sys.exit(1)
+    else:
+        ec2, ce = choose_session(region=region)
+        threads = create_initial_fleet_and_periodic_rejuvenation_thread(ec2, input_args)
 
     time.sleep(10) # wait for threads to start
 
