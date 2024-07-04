@@ -32,16 +32,16 @@ This test will eventually terminate the instances and stop (after a few minutes)
 
 ## Artifact evaluation Experiment E3 Minimal working example:
 
-Instance rejuvenation test: this will create a selection of VMs that are periodically rejuvenated, using the instance rejuvenation method. 
+Instance rejuvenation test: this will create a selection of VMs that are periodically rejuvenated, using the instance rejuvenation method. Feel free to terminate whenever you'd like, for example, if you've noticed sufficiently many rejuvenation counts, indicated by the log output "Begin Rejuvenation count: ...". 
 ```bash
 python3 api.py input-args-wireguard.json
 ```
-Note: This test will not terminate, and you have to perform these steps manually: stop the script, and terminate the **instances** manually through your AWS Console. 
+Note: This test will not terminate, and you have to perform these steps manually: stop the script, and terminate the **instances** (if any) manually through your AWS Console. 
 
-Live IP rejuvenation test: this will create a selection of VMs that are periodically rejuvenated, using the live IP rejuvenation method. 
+Live IP rejuvenation test: this will create a selection of VMs that are periodically rejuvenated, using the live IP rejuvenation method. Feel free to terminate whenever you'd like, for example, if you've noticed sufficiently many rejuvenation counts, indicated by the log output "Begin Rejuvenation count: ..."
 1. Modify the `mode` field value to "liveip" within `input-args-wireguard.json`. 
 2. Execute the instance manager
 ```bash
 python3 api.py input-args-wireguard.json
 ```
-Note: This test will not terminate, and you have to perform these steps manually: stop the script, and terminate the **instances and elastic IPs** manually through your AWS Console. 
+Note: This test will not terminate, and you have to perform these steps manually: stop the script, and terminate the **instances and elastic IPs** (if any) manually through your AWS Console. 
