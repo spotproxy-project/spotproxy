@@ -31,12 +31,12 @@ python3 api.py input-args-wireguard.json simple-test
 This test will eventually terminate the instances and stop (after a few minutes), but feel free to perform these steps manually: stop the script, and terminate the instances manually through your AWS Console. 
 
 ## Artifact evaluation Experiment E3 Minimal working example:
-Note: These tests will not terminate, you have to perform these steps manually: stop the script, and terminate the instances manually through your AWS Console. 
 
 Instance rejuvenation test: this will create a selection of VMs that are periodically rejuvenated, using the instance rejuvenation method. 
 ```bash
 python3 api.py input-args-wireguard.json
 ```
+Note: This test will not terminate, and you have to perform these steps manually: stop the script, and terminate the **instances** manually through your AWS Console. 
 
 Live IP rejuvenation test: this will create a selection of VMs that are periodically rejuvenated, using the live IP rejuvenation method. 
 1. Modify the `mode` field value to "liveip" within `input-args-wireguard.json`. 
@@ -44,3 +44,4 @@ Live IP rejuvenation test: this will create a selection of VMs that are periodic
 ```bash
 python3 api.py input-args-wireguard.json
 ```
+Note: This test will not terminate, and you have to perform these steps manually: stop the script, and terminate the **instances and elastic IPs** manually through your AWS Console. 
