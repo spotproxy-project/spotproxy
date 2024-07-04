@@ -4,7 +4,7 @@ The controller for the spotproxy project. This code also contains the censor sim
 
 ## Usage guide
 
-Refer to the following section to learn how to use the controller or run the simulation.
+Refer to the following section to learn how to use the controller or run the simulation. Execute all the commands below within this directory (i.e., `spotcontroller/`). 
 
 ### Running the controller
 
