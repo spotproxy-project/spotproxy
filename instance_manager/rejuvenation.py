@@ -293,6 +293,7 @@ class InstanceRejuvenator(Rejuvenator):
         
         # Terminate remaining instances:
         # refresh_credentials()
+        self.print_stdout_and_filename("Terminating instances from previous rejuvenation period..", self.print_filename)
         ec2_region = instance_list_prev[0]['ec2_session_region']
         ec2, ce = api.choose_session(region=ec2_region)
         for index, instance_details in enumerate(instance_list_prev):
@@ -301,6 +302,7 @@ class InstanceRejuvenator(Rejuvenator):
                 ec2_region = instance_details['ec2_session_region']
                 ec2, ce = api.choose_session(region=ec2_region)
             api.terminate_instances(ec2, [instance])
+        self.print_stdout_and_filename("Instances terminated from previous rejuvenation period..", self.print_filename)
         
         # Get total cost:
         # total_cost, optimal_total_cost, total_monthly_cost, optimal_monthly_cost = calculate_cost(instance_lists, rej_period, exp_duration, multi_NIC=False, rej_count=rejuvenation_index-1)
