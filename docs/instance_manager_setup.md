@@ -28,7 +28,7 @@ Cost arbitrage test: this is a scaled down test compared with experiment E3 that
 ```bash
 python3 api.py input-args-wireguard.json simple-test
 ```
-This test will eventually terminate the instances and stop (after a few minutes), but feel free to perform these steps manually: stop the script, and terminate the instances manually through your AWS Console. 
+This test will eventually terminate the instances and stop (after a few minutes), but feel free to perform these steps manually: stop the script, and terminate the instances manually through your AWS Console. Be careful not to terminate your instance manager VM. 
 
 ## Artifact evaluation Experiment E3 Minimal working example:
 
@@ -36,7 +36,7 @@ Instance rejuvenation test: this will create a selection of VMs that are periodi
 ```bash
 python3 api.py input-args-wireguard.json
 ```
-Note: This test will not terminate, and you have to perform these steps manually: stop the script, and terminate the **instances** (if any) manually through your AWS Console. 
+Note: This test will not terminate, and you have to perform these steps manually: stop the script, and terminate the **instances** (if any) manually through your AWS Console. Be careful not to terminate your instance manager VM. 
 
 Live IP rejuvenation test: this will create a selection of VMs that are periodically rejuvenated, using the live IP rejuvenation method. Feel free to terminate whenever you'd like, for example, if you've noticed sufficiently many rejuvenation counts, indicated by the log output "Begin Rejuvenation count: ..."
 1. Modify the `mode` field value to "liveip" within `input-args-wireguard.json`. 
@@ -44,4 +44,4 @@ Live IP rejuvenation test: this will create a selection of VMs that are periodic
 ```bash
 python3 api.py input-args-wireguard.json
 ```
-Note: This test will not terminate, and you have to perform these steps manually: stop the script, and terminate the **instances and elastic IPs** (if any) manually through your AWS Console. 
+Note: This test will not terminate, and you have to perform these steps manually: stop the script, and terminate the **instances and elastic IPs** (if any) manually through your AWS Console. For elastic IPs you would generally have to disassociate and release them individually, and also destroy the associated network interfaces (optional since these interfaces are not charged). Be careful not to terminate your instance manager VM. 

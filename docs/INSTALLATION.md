@@ -3,7 +3,7 @@ This will guide you through the AWS VM setup process of the instance manager com
 Note: this evaluation can be done mostly on free AWS resources (except for the use of Elastic IPs which are charged less than a dollar).
 
 ## Setup instructions:
-1. Setup an AWS account, create an IAM user (give it Full EC2 access permissions), and obtain its AWS access key and AWS secret access key. 
+1. Setup an AWS account, create an IAM user (attach the following policies: `AmazonEC2FullAccess`, `AWSPriceListServiceFullAccess`), and obtain its AWS access key and AWS secret access key. 
 2. Create a AWS VM running Ubuntu 22.04, with a security group allowing all TCP traffic (for the convenience of artifact evaluation). This will be used for the instance manager component of SpotProxy. 
 3. SSH into the VM. 
 4. Install [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)

@@ -7,12 +7,14 @@ Ensure all instructions are executed within this folder (`./cost_arbitrage`).
 git clone https://github.com/ericpauley/aws-spot-price-history.git
 ```
 
-2. Enter the pricing history month folders and perform untar on the .zst files:
+2. Enter the pricing history month folders and extract any .zst file that you desire. For example:
 ```bash
-TBD
+cd aws-spot-price-history/prices/2022
+unzstd 06.tsv.zst
+cd ../../../
 ```
 
-2. Run the script:
+3. Run the script:
 ```bash
-python3 analyze_loop.py
+python3 analyze.py 0.021 0.2
 ```
