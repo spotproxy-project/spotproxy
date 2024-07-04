@@ -470,6 +470,5 @@ info.md
 showstats.py
 temp.md
 test*
-results/
 docs/
-results*
+results/**/*.csv
