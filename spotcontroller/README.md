@@ -4,7 +4,7 @@ The controller for the spotproxy project. This code also contains the censor sim
 
 ## Usage guide
 
-Refer to the following section to learn how to use the controller or run the simulation.
+Refer to the following section to learn how to use the controller or run the simulation. Execute all the commands below within this directory (i.e., `spotcontroller/`). 
 
 ### Running the controller
 
@@ -21,4 +21,20 @@ Output of the following line `Starting development server at http://0.0.0.0:8000
 
 ### Running the simulation
 
-To run the simulation, repeat the steps above, but with the the file ```SimulationDockerfile``` instead.
+1. Build the docker file ```SimulationDockerfile``` and run it using:
+
+```sh
+    sudo docker build -t simulation-image -f SimulationDockerfile .
+    sudo docker run -it --name=simulation simulation-image
+```
+
+This simulation should take a few minutes only to complete.  
+
+2. Inspect the results by reentering the exited docker container:
+```sh
+sudo docker ps --all # Get the CONTAINER ID of the docker container that you ran earlier 
+sudo docker commit <container-ID> test-commit # Create a new commit based on the current state of the container
+sudo docker run -it test-commit /bin/bash # Access the docker container
+ls results # Retrieve the required simulation output file within this folder
+```
+The `.csv` file within `results` is the resultant simulation output. If this file exists, the simulation was a success. 

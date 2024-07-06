@@ -202,10 +202,13 @@ class InstanceRejuvenator(Rejuvenator):
         # Create fleet (with tag values as indicated above):
         instance_list_prev = self.create_fleet(ec2)
         instance_lists.extend(instance_list_prev)
+
         # Make sure instance can be sshed/pinged (fail rejuvenation if not):
+        self.print_stdout_and_filename("Waiting for instance NICs to initialize..", self.print_filename)
         time.sleep(self.wait_time_after_nic)
         ec2_region = instance_list_prev[0]['ec2_session_region']
         ec2, ce = api.choose_session(region=ec2_region)
+        self.print_stdout_and_filename("Checking if instances are alive..", self.print_filename)
         for index, instance_details in enumerate(instance_list_prev):
             if instance_details['ec2_session_region'] != ec2_region:
                 ec2_region = instance_details['ec2_session_region']
@@ -214,6 +217,7 @@ class InstanceRejuvenator(Rejuvenator):
             if len(failed_ips) != 0:
                 self.print_stdout_and_filename("Failed to ssh/ping into instances: " + str(failed_ips), self.print_filename)
                 assert len(failed_ips) == 0, "Failed to ssh/ping into instances: " + str(failed_ips)
+        self.print_stdout_and_filename("Instances are alive.", self.print_filename)
 
         # Notify controller:
         if quick_test == True:
@@ -244,7 +248,9 @@ class InstanceRejuvenator(Rejuvenator):
             instance_list = self.create_fleet(ec2)
 
             # Make sure instance can be sshed/pinged (fail rejuvenation if not):
+            self.print_stdout_and_filename("Waiting for instance NICs to initialize..", self.print_filename)
             time.sleep(self.wait_time_after_nic)
+            self.print_stdout_and_filename("Checking if instances are alive..", self.print_filename)
             ec2_region = instance_list[0]['ec2_session_region']
             ec2, ce = api.choose_session(region=ec2_region)
             for index, instance_details in enumerate(instance_list):
@@ -255,6 +261,7 @@ class InstanceRejuvenator(Rejuvenator):
                 if len(failed_ips) != 0:
                     self.print_stdout_and_filename("Failed to ssh/ping into instances: " + str(failed_ips), self.print_filename)
                     assert len(failed_ips) == 0, "Failed to ssh/ping into instances: " + str(failed_ips)
+            self.print_stdout_and_filename("Instances are alive.", self.print_filename)
 
             # Notify controller:
             self.extract_ips_and_notify_controller(instance_list_prev, instance_list)
@@ -293,6 +300,7 @@ class InstanceRejuvenator(Rejuvenator):
         
         # Terminate remaining instances:
         # refresh_credentials()
+        self.print_stdout_and_filename("Terminating instances from previous rejuvenation period..", self.print_filename)
         ec2_region = instance_list_prev[0]['ec2_session_region']
         ec2, ce = api.choose_session(region=ec2_region)
         for index, instance_details in enumerate(instance_list_prev):
@@ -301,6 +309,7 @@ class InstanceRejuvenator(Rejuvenator):
                 ec2_region = instance_details['ec2_session_region']
                 ec2, ce = api.choose_session(region=ec2_region)
             api.terminate_instances(ec2, [instance])
+        self.print_stdout_and_filename("Instances terminated from previous rejuvenation period..", self.print_filename)
         
         # Get total cost:
         # total_cost, optimal_total_cost, total_monthly_cost, optimal_monthly_cost = calculate_cost(instance_lists, rej_period, exp_duration, multi_NIC=False, rej_count=rejuvenation_index-1)
@@ -421,7 +430,9 @@ class LiveIPRejuvenator(Rejuvenator):
         instance_list = self.create_fleet(ec2)
 
         # Make sure instance can be sshed/pinged (fail rejuvenation if not):
+        self.print_stdout_and_filename("Waiting for instance NICs to initialize..", self.print_filename)
         time.sleep(self.wait_time_after_nic)
+        self.print_stdout_and_filename("Checking if instances are alive..", self.print_filename)
         start_time = time.time()
         ec2_region = instance_list[0]['ec2_session_region']
         ec2, ce = api.choose_session(region=ec2_region)
@@ -439,6 +450,7 @@ class LiveIPRejuvenator(Rejuvenator):
         self.print_stdout_and_filename("Time taken to ping newly created fleet: " + str(end_time - start_time), self.print_filename)
 
         # Sleep for rej_period:
+        self.print_stdout_and_filename("Sleeping for {} seconds until next rejuvenation period..".format(self.REJUVENATION_PERIOD), self.print_filename)
         time.sleep(self.REJUVENATION_PERIOD)
 
         # Continue with rejuvenation:
@@ -459,12 +471,14 @@ class LiveIPRejuvenator(Rejuvenator):
                 for index2, nic_details in enumerate(instance_details['NICs']):
                     start_time2 = time.time()
                     # Deassociate and deallocate NICs from instances (including original one) (with tag values as indicated above):
+                    self.print_stdout_and_filename("Removing existing elastic IPs..", self.print_filename)
                     api.disassociate_address(ec2, nic_details[2])
                     api.release_address(ec2, nic_details[1])
 
                     nic = nic_details[0]
 
                     # Allocate and associate elastic IPs to all of the NICs (including original one) (with tag values as indicated above):
+                    self.print_stdout_and_filename("Allocating new elastic IPs..", self.print_filename)
                     # eip = api.create_eip(ec2, nic, tag)
                     eip = api.get_eip_id_from_allocation_response(api.allocate_address(ec2))
                     # api.associate_address(ec2, instance, eip, nic)
@@ -482,8 +496,10 @@ class LiveIPRejuvenator(Rejuvenator):
                 instance_details['NICs'] = new_nic_details
         
             # Make sure instance can be sshed/pinged (fail rejuvenation if not):
+            self.print_stdout_and_filename("Waiting for instance NICs to initialize..", self.print_filename)
             time.sleep(self.wait_time_after_nic)
             ec2, ce = api.choose_session(region=ec2_region)
+            self.print_stdout_and_filename("Checking if instances are alive..", self.print_filename)
             for instance_details in instance_list:
                 if instance_details['ec2_session_region'] != ec2_region:
                     ec2_region = instance_details['ec2_session_region']
@@ -493,6 +509,7 @@ class LiveIPRejuvenator(Rejuvenator):
                     with open(print_filename, 'a') as file:
                         self.print_stdout_and_filename("Failed to ssh/ping into instances: " + str(failed_ips), self.print_filename)
                         assert len(failed_ips) == 0, "Failed to ssh/ping into instances: " + str(failed_ips)
+            self.print_stdout_and_filename("Instances are alive.", self.print_filename)
 
             # Print new details:
             # print("Concluded Rejuvenation count: ", rejuvenation_index)
@@ -504,6 +521,7 @@ class LiveIPRejuvenator(Rejuvenator):
             rejuvenation_index += 1
 
             # Sleep for rej_period:
+            self.print_stdout_and_filename("Sleeping for {} seconds until next rejuvenation period..".format(self.REJUVENATION_PERIOD), self.print_filename)
             time.sleep(self.REJUVENATION_PERIOD)
 
         # refresh_credentials()
@@ -515,6 +533,7 @@ class LiveIPRejuvenator(Rejuvenator):
         # print_stdout_and_filename("Total monthly cost of this live IP rejuvenation experiment: {}. Optimal monthly cost (multi-NIC) is: {}".format(total_monthly_cost, optimal_monthly_cost), print_filename)
 
         # Remove instances (and NICs) and EIPs: TODO: move this into a finally block after termination..
+        self.print_stdout_and_filename("Terminating instances from previous rejuvenation period..", self.print_filename)
         start_time = time.time()
         ec2, ce = api.choose_session(region=ec2_region)
         for instance_details in instance_list:

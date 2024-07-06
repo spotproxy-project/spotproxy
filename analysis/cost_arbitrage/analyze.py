@@ -468,8 +468,7 @@ if __name__ == '__main__':
             #     x=1
 
             # Get the total cost of the optimal schedule:
-            my_session = boto3.session.Session(profile_name='spotproxy-pat-umich-role')
-            ec2 = my_session.client('ec2', 'us-east-1')
+            ec2 = boto3.client('ec2', 'us-east-1')
             optimal_single_cost, cost_arbitrage_intervals = calculate_cost(ec2, df_optimal, end_date, start_date)
             optimal_multi_cost , _ = calculate_cost(ec2, df_optimal, end_date, start_date, multi_nic=True)
             baseline_static_spotvm_cost, _ = calculate_cost(ec2, df_baseline_static_instance_type_only, end_date, start_date)

@@ -3,7 +3,8 @@
 
 
 ############ BASICS ############
-SIMULATION_DURATION = 2 * 365 * 12  # 2 years
+# SIMULATION_DURATION = 2 * 365 * 12  # 2 years
+SIMULATION_DURATION = 5 * 12  # 5 days. Faster for artifact evaluation purposes. 
 BIRTH_PERIOD = 365 * 6  # half a year?
 CLIENT_UTILITY_THRESHOLD = -500
 WORLD_SIZE = 20000

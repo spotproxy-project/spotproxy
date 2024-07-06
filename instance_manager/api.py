@@ -852,9 +852,9 @@ if __name__ == '__main__':
         ec2, ce = choose_session(region=region)
         threads = create_initial_fleet_and_periodic_rejuvenation_thread(ec2, input_args)
 
-    time.sleep(10) # wait for threads to start
+        run_server(ec2)
 
-    run_server(ec2)
+    time.sleep(10) # wait for threads to start
 
     for thread in threads:
         # Wait for threads to end:

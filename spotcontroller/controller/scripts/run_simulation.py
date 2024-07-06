@@ -227,6 +227,12 @@ def run(*args):
     CENSORING_AGENTS_TO_ALL_CLIENTS = [0.05, 0.1, 0.5]  # can be 0.05, 0.1, and 0.5
     CENSORING_AGENTS_TO_ALL_CLIENTS_BIRTH_PERIOD_ratio = 0.4
 
+    ############ CENSOR: fewer options for faster artifact evaluation ############
+    CENSOR_TYPE = ["OPTIMAL"]  # OPTIMAL or AGGRESIVE
+    REJUVINATION_INTERVAL = [1]  # rejuvinations are made every this many time units
+    CENSORING_AGENTS_TO_ALL_CLIENTS = [0.05]  # can be 0.05, 0.1, and 0.5
+    CENSORING_AGENTS_TO_ALL_CLIENTS_BIRTH_PERIOD_ratio = 0.4
+
     for censoring_agent_ratio in CENSORING_AGENTS_TO_ALL_CLIENTS:
         for censor_type in CENSOR_TYPE:
             for rejuvination_interval in REJUVINATION_INTERVAL:
@@ -265,7 +271,7 @@ def run(*args):
                         )
 
                 print("done")
-                os.system("python3 manage.py flush --no-input")
+                os.system("python3 controller/manage.py flush --no-input")
                 # os.system("python3 manage.py migrate")
                 sleep(3)
                 print("ready to go")
