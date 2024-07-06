@@ -1,0 +1,132 @@
+Changes in version v2.6.0 - 2023-06-19
+- Issue 40243: Implement datachannel flow control at proxy
+- Issue 40087: Append Let's Encrypt ISRG Root X1 to cert pool
+- Issue 40198: Use IP_BIND_ADDRESS_NO_PORT when dialing the ORPort on linux
+- Move from gitweb to gitlab
+- Add warning log at broker when proxy does not connect with client
+- Fix unit tests after SDP validation
+- Soften non-critical log from error to warning
+- Issue 40231: Validate SDP offers and answers
+- Add scanner error check to ClusterCounter.Count
+- Fix server benchmark tests
+- Issue 40260: Use a sync.Pool to reuse QueuePacketConn buffers
+- Issue 40043: Restore ListenAndServe error in server
+- Update pion webrtc library versions
+- Issue 40108: Add outbound address config option to proxy
+- Issue 40260: Fix a data race in the Snowflake server
+- Issue 40216: Add utls-imitate, utls-nosni documentation to the README
+- Fix up/down traffic stats in standalone proxy
+- Issue 40226: Filter out ICE servers that are not STUN
+- Issue 40226: Update README to reflect the type of ICE servers we support
+- Issue 40226: Parse ICE servers using the pion/ice library function
+- Bring client torrc up to date with Tor Browser
+
+Changes in version v2.5.1 - 2023-01-18
+- Issue 40249: Fix issue with Skip Hello Verify patch
+
+Changes in version v2.5.0 - 2023-01-18
+- Issue 40249: Apply Skip Hello Verify Migration
+
+Changes in version v2.4.3 - 2023-01-16
+- Fix version number in version.go
+
+Changes in version v2.4.2 - 2023-01-13
+- Issue 40208: Enhance help info for capacity flag
+- Issue 40232: Update README and fix help output
+- Issue 40173: Increase clientIDAddrMapCapacity
+- Issue 40177: Manually unlock mutex in ClientMap.SendQueue
+- Issue 40177: Have SnowflakeClientConn implement io.WriterTo
+- Issue 40179: Reduce turbotunnel queueSize from 2048 to 512
+- Issue 40187/40199: Take ownership of buffer in QueuePacketConn QueueIncoming/WriteTo
+- Add more tests for URL encoded IPs (safelog)
+- Fix server flag name
+- Issue 40200: Use multiple parallel KCP state machines in the server
+- Add a num-turbotunnel server transport option
+- Issue: 40241: Switch default proxy STUN server to stun.l.google.com
+
+Changes in version v2.4.1 - 2022-12-01
+- Issue 40224: Bug fix in utls roundtripper
+
+Changes in version v2.4.0 - 2022-11-29
+- Fix proxy command line help output
+- Issue 40123: Reduce multicast DNS candidates
+- Add ICE ephemeral ports range setting
+- Reformat using Go 1.19
+- Update CI tests to include latest and minimum Go versions
+- Issue 40184: Use fixed unit for bandwidth logging
+- Update gorilla/websocket to v1.5.0
+- Issue 40175: Server performance improvements
+- Issue 40183: Change snowflake proxy log verbosity
+- Issue 40117: Display proxy NAT type in logs
+- Issue 40198: Add a `orport-srcaddr` server transport option
+- Add gofmt output to CI test
+- Issue 40185:  Change bandwidth type from int to int64 to prevent overflow
+- Add version output support to snowflake
+- Issue 40229: Change regexes for ipv6 addresses to catch url-encoded addresses
+- Issue 40220: Close stale connections in standalone proxy
+
+Changes in version v2.3.0 - 2022-06-23
+- Issue 40146: Avoid performing two NAT probe tests at startup
+- Issue 40134: Log messages from client NAT check failures are confusing
+- Issue 34075: Implement metrics to measure snowflake churn
+- Issue 28651: Prepare all pieces of the snowflake pipeline for a second snowflake bridge
+- Issue 40129: Distributed Snowflake Server Support
+
+Changes in version v2.2.0 - 2022-05-25
+
+- Issue 40099: Initialize SnowflakeListener.closed
+- Add connection failure events for proxy timeouts
+- Issue 40103: Fix proxy logging verb tense
+- Fix up and downstream metrics output for proxy
+- Issue 40054: uTLS for broker negotiation
+- Forward bridge fingerprint from client to broker (WIP, Issue 28651)
+- Issue 40104: Make it easier to configure proxy type
+- Remove version from ClientPollRequest
+- Issue 40124: Move tor-specific code out of library
+- Issue 40115: Scrub pt event logs
+- Issue 40127: Bump webrtc and dtls library versions
+- Bump version of webrtc and dtls to fix dtls CVEs
+- Issue 40141: Ensure library calls of events can be scrubbed
+
+Changes in version v2.1.0 - 2022-02-08
+
+- Issue 40098: Remove support for legacy one shot mode
+- Issue 40079: Make connection summary at proxy privacy preserving
+- Issue 40076: Add snowflake event API for notifications of connection events
+- Issue 40084: Increase capacity of client address map at the server
+- Issue 40060: Further clean up snowflake server logs
+- Issue 40089: Validate proxy and client supplied strings at broker
+- Issue 40014: Update version of DTLS library to include fingerprinting fixes
+- Issue 40075: Support recurring NAT type check in standalone proxy
+
+
+Changes in version v2.0.0 - 2021-11-04
+
+- Turn the standalone snowflake proxy code into a library
+- Clean up and reworked the snowflake client and server library code
+- Unify broker/bridge domains to *.torproject.net
+- Updates to the snowflake library documentation
+- New package functions to define and set a rendezvous method with the
+broker
+- Factor out the broker geoip code into its own external library
+- Bug fix to check error calls in preparePeerConnection
+- Bug fixes in snowflake tests
+- Issue 40059: add the ability to pass in snowflake arguments through SOCKS
+- Increase buffer sizes for sending and receiving snowflake data
+- Issue 25985: rendezvous with the broker using AMP cache
+- Issue 40055: wait for the full poll interval between proxy polls
+
+Changes in version v1.1.0 - 2021-07-13
+
+- Refactors of the Snowflake broker code
+- Refactors of the Snowflake proxy code
+- Issue 40048: assign proxies based on self-reported client load
+- Issue 40052: fixed a memory leak in the server accept loop
+- Version bump of kcp and smux libraries
+- Bug fix to pass the correct client address to the Snowflake bridge metrics
+counter
+- Bug fixes to prevent race conditions in the Snowflake client 
+
+Changes in version v1.0.0 - 2021-06-07
+
+- Initial release.
