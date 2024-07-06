@@ -50,6 +50,8 @@ Example:
 ```
 
 ### Running Tests in AWS
-
 For configuring AWS spot instances and running tests on them, refer to AWS Guide.pdf
+
+### Common Errors
+Sometimes due to tor network being unstable there will be erros such as "No circuits are opened. Relaxed timeout". In this case wait for 30 minutes - one day and try again.
 

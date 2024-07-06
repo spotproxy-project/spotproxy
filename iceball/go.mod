@@ -64,6 +64,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-//replace gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2 v2.0.0 => /home/ubuntu/iceball
+replace gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2 v2.0.0 => /home/ubuntu/iceball
 
-replace gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2 v2.0.0 => /home/cstdio/Desktop/Rice/Research/iceball/iceball
+//replace gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2 v2.0.0 => /home/cstdio/Desktop/Rice/Research/iceball/iceball
