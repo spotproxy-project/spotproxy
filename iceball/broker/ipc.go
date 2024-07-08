@@ -204,9 +204,12 @@ func (i *IPC) ClientOffers(arg messages.Arg, response *[]byte) error {
 		}
 
 		//newTicker := time.NewTicker(time.Second * 120000)
-		client := &Client{proxy: snowflake, ticker: nil, id: req.Id, natType: offer.NatType}
-		Proxy2Client[snowflake.ip] = append(Proxy2Client[snowflake.ip], client)
-		Cid2Client[req.Id] = client
+		client, ok := Cid2Client[req.Id]
+		if ok {
+			client.proxy = snowflake
+		} else {
+			Cid2Client[req.Id] = &Client{proxy: snowflake, ticker: nil, id: req.Id, natType: offer.NatType}
+		}
 		/*
 			backupIP := i.matchSnowflake(offer.NatType).ip
 			transferReq1 := messages.TransferRequest{Cid: req.Id, NewIp: backupIP, TransferNow: false}
@@ -314,6 +317,7 @@ func (i *IPC) ProxyNotice(cid string, action string, proxyIP string) {
 			Proxy2Client[proxyIP] = slices.Delete(Proxy2Client[proxyIP], idx, idx+1)
 		}
 	}
+	log.Println(Proxy2Client)
 }
 
 func (i *IPC) Rescale(oldIPs []string, newIPs []string) bool {

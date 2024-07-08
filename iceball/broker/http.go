@@ -273,6 +273,7 @@ func validateSDP(SDP []byte) error {
 Proxy notifying broker about client update
 */
 func proxyNotice(i *IPC, w http.ResponseWriter, r *http.Request) {
+	log.Printf("Receive client update from proxy")
 	remoteIP, _, _ := net.SplitHostPort(r.RemoteAddr)
 	request := messages.ClientChange{}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
