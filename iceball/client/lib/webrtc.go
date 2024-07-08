@@ -57,7 +57,7 @@ type ClientOffer struct {
 }
 
 // test
-var connected = make(chan bool)
+// var connected = make(chan bool)
 var transfer = false
 
 func NewWebRTCPeer(config *webrtc.Configuration,
@@ -104,7 +104,7 @@ func NewWebRTCPeerWithEvents(config *webrtc.Configuration,
 	go func() {
 		<-connection.probeTimer.C
 		log.Printf("WebRTC: %s Probe timer expired", connection.id)
-		<-connected
+		//<-connected
 		log.Printf("WebRTC: %s close old connection", connection.id)
 		connection.Close()
 	}()
@@ -281,7 +281,7 @@ func (c *WebRTCPeer) preparePeerConnection(config *webrtc.Configuration) error {
 	dc2.OnOpen(func() {
 		if transfer {
 			log.Println("Transfer DataChannel.OnOpen")
-			connected <- true
+			//connected <- true
 			transfer = false
 		}
 		log.Println("WebRTC: MsgDataChannel.OnOpen")
@@ -463,7 +463,7 @@ func DirectConnect(config *webrtc.Configuration, ip string) (*WebRTCPeer, error)
 	connection.probeTimer = time.NewTimer(6000 * time.Second)
 	go func() {
 		<-connection.probeTimer.C
-		<-connected
+		//<-connected
 		log.Printf("WebRTC: Probe timer expired")
 		connection.Close()
 	}()
