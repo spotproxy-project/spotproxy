@@ -57,7 +57,7 @@ type ClientOffer struct {
 }
 
 // test
-// var connected = make(chan bool)
+var connected = make(chan bool)
 var transfer = false
 
 func NewWebRTCPeer(config *webrtc.Configuration,
@@ -104,7 +104,10 @@ func NewWebRTCPeerWithEvents(config *webrtc.Configuration,
 	go func() {
 		<-connection.probeTimer.C
 		log.Printf("WebRTC: %s Probe timer expired", connection.id)
-		//<-connected
+		if transfer {
+			<-connected
+		}
+		transfer = false
 		log.Printf("WebRTC: %s close old connection", connection.id)
 		connection.Close()
 	}()
@@ -281,8 +284,7 @@ func (c *WebRTCPeer) preparePeerConnection(config *webrtc.Configuration) error {
 	dc2.OnOpen(func() {
 		if transfer {
 			log.Println("Transfer DataChannel.OnOpen")
-			//connected <- true
-			transfer = false
+			connected <- true
 		}
 		log.Println("WebRTC: MsgDataChannel.OnOpen")
 	})
@@ -318,10 +320,13 @@ func (c *WebRTCPeer) preparePeerConnection(config *webrtc.Configuration) error {
 		}
 
 		if probeMsg.TimeVal != 0 {
-			log.Printf("WebRTC: Resetting probe timer to %d seconds on %s", probeMsg.TimeVal, c.id)
-			c.probeTimer.Stop()
-			result := c.probeTimer.Reset(time.Duration(probeMsg.TimeVal) * time.Second)
-			log.Printf("WebRTC: Reset probe timer result: %t on %s", result, c.id)
+			if !transfer {
+				log.Printf("WebRTC: Resetting probe timer to %d seconds on %s", probeMsg.TimeVal, c.id)
+				c.probeTimer.Stop()
+				result := c.probeTimer.Reset(time.Duration(probeMsg.TimeVal) * time.Second)
+				log.Printf("WebRTC: Reset probe timer result: %t on %s", result, c.id)
+			}
+
 		} else {
 			log.Printf("WebRTC: Resetting probe timer to 1 millisecond")
 			c.probeTimer.Stop()
@@ -463,7 +468,10 @@ func DirectConnect(config *webrtc.Configuration, ip string) (*WebRTCPeer, error)
 	connection.probeTimer = time.NewTimer(6000 * time.Second)
 	go func() {
 		<-connection.probeTimer.C
-		//<-connected
+		if transfer {
+			<-connected
+		}
+		transfer = false
 		log.Printf("WebRTC: Probe timer expired")
 		connection.Close()
 	}()

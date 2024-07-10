@@ -119,7 +119,7 @@ func (i *IPC) ProxyPolls(arg messages.Arg, response *[]byte) error {
 		clients:       clients,
 		index:         -1,
 	}
-	ProxyIP2Snowflake[addr] = Snowflake
+	ProxyIP2Snowflake[remoteIP] = Snowflake
 	i.ctx.idToSnowflake[sid] = Snowflake
 	if natType == NATUnrestricted {
 		log.Printf("Proxy: Added unrestricted snowflake %s", sid)
@@ -322,11 +322,16 @@ func (i *IPC) ProxyNotice(cid string, action string, proxyIP string) {
 
 func (i *IPC) Rescale(oldIPs []string, newIPs []string) bool {
 	i.ctx.snowflakeLock.Lock()
-	defer i.ctx.snowflakeLock.Unlock()
 
-	for ip := range Proxy2Client {
+	//remove old proxies from pool
+	for _, ip := range oldIPs {
 		proxy := ProxyIP2Snowflake[ip]
 		i.ctx.snowflakes.Remove(proxy)
+	}
+	i.ctx.snowflakeLock.Unlock()
+
+	//migrate
+	for _, ip := range oldIPs {
 		delete(ProxyIP2Snowflake, ip)
 		for idx := 0; idx < len(Proxy2Client[ip]); idx++ {
 			client := Proxy2Client[ip][idx]

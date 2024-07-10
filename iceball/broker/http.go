@@ -27,9 +27,9 @@ type SnowflakeHandler struct {
 	handle func(*IPC, http.ResponseWriter, *http.Request)
 }
 
-type managerRequest struct {
-	oldIPs []string
-	newIPs []string
+type ManagerNotice struct {
+	OldProxyIps []string `json:"old_proxy_ips"`
+	NewProxyIps []string `json:"new_proxy_ips"`
 }
 
 func (sh SnowflakeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -288,12 +288,12 @@ func proxyNotice(i *IPC, w http.ResponseWriter, r *http.Request) {
 instance manager notifying proxy instances rescale
 */
 func managerNotice(i *IPC, w http.ResponseWriter, r *http.Request) {
-	request := managerRequest{}
+	request := ManagerNotice{}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		panic(err)
 	}
-	result := i.Rescale(request.oldIPs, request.newIPs)
+	result := i.Rescale(request.OldProxyIps, request.NewProxyIps)
 	//TODO: add more if needed
 	if result == true {
 		w.WriteHeader(http.StatusOK)

@@ -58,5 +58,7 @@ func (sh *SnowflakeHeap) Remove(s interface{}) {
 	snowflake := s.(*Snowflake)
 	flakes := *sh
 	idx := slices.Index(flakes, snowflake)
-	*sh = slices.Delete(flakes, idx, idx+1)
+	if idx != -1 {
+		*sh = slices.Delete(flakes, idx, idx+1)
+	}
 }
