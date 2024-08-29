@@ -6,3 +6,4 @@ response.json
 total_spot_prices.csv
 instance_manager/misc/rejuvenation_eval/misc/assume-role-output.json
 *.pyc
+.DS_Store
