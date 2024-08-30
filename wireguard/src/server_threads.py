@@ -7,9 +7,14 @@ from time import sleep
 import json
 from logger import log
 import logging
+import sys
 
-logging.basicConfig(filename='proxy_log.txt', level=logging.INFO, 
-                    format='%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    stream=sys.stdout
+)
 
 client_addresses = []
 client_sockets = []
