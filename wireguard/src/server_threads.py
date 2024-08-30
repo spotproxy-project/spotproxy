@@ -6,6 +6,10 @@ import psutil
 from time import sleep
 import json
 from logger import log
+import logging
+
+logging.basicConfig(filename='proxy_log.txt', level=logging.INFO, 
+                    format='%(asctime)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 client_addresses = []
 client_sockets = []
@@ -31,6 +35,11 @@ class ForwardThread(threading.Thread):
                 data = self.source_socket.recv(1024)
                 if data:
                     self.destination_socket.sendall(data)
+                    request = data.decode('utf-8')
+                    if request.startswith('GET') or request.startswith('POST'):
+                        website = request.split()[1]
+                        client_ip = self.source_socket.getpeername()[0]
+                        logging.info(f"Client {client_ip} requested: {website}")
                 else:
                     try:
                         self.source_socket.close()
@@ -68,9 +77,11 @@ class ForwardingServerThread(threading.Thread):
                 if client_address not in client_addresses:
                     client_addresses.append(client_address)
                     client_sockets.append(client_socket)
+                    logging.info(f"New client connected: {client_address[0]}:{client_address[1]}")
 
                 if len(client_addresses) % 10 == 0:
                     print(len(client_addresses))
+                    logging.info(f"Total clients connected: {len(client_addresses)}")
                 nat_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 nat_socket.connect((self.forward_endpoint[0], self.forward_endpoint[1]))
                 nat_sockets.append(nat_socket)
@@ -189,6 +200,10 @@ class PollingHandler(threading.Thread):
                 message_to_send = json.dumps(report)
                 poller_socket.sendall(message_to_send.encode())
                 poller_socket.close()
+                logging.info(f"Polling report: CPU: {cpu_utilization}%, Throughput: {throughput}, Clients: {len(client_addresses)}")
+
+        except Exception as e:
+            logging.error(f"Error in PollingHandler: {str(e)}")
 
         finally:
             dock_socket.close()
