@@ -14,6 +14,8 @@ pip install -r requirements.txt
 
 wg-quick up wg0
 
+ip route add default dev wg0
+
 cd src
 
 python3 client.py

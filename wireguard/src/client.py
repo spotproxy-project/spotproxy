@@ -277,9 +277,27 @@ def mass_test_simple_client(host, port, test_duration=1500):
     log(f"test is done, total time was: {time() - start_time} secs")
     sleep(10)
 
+def browse_url(url):
+    global client_socket
+    try:
+        message = f"GET {url}"
+        client_socket.send(message.encode("utf-8"))
+        bs = client_socket.recv(8)
+        (length,) = unpack(">Q", bs)
+        data = b""
+        while len(data) < length:
+            to_read = length - len(data)
+            new_data = client_socket.recv(4096 if to_read > 4096 else to_read)
+            data += new_data
+        return data.decode('utf-8')
+    except Exception as e:
+        log(f"Error while browsing {url}: {e}")
+        return None
 
 if __name__ == "__main__":
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    host = "10.27.0.20"
+    port = 8088
     if len(sys.argv) > 1:
         my_id = int(sys.argv[1])
         num1 = my_id // 200
@@ -288,16 +306,22 @@ if __name__ == "__main__":
         migration_endpoint = (my_ip, 8089)
         handler = MigrationHandler(listen_endpoint=migration_endpoint)
         handler.start()
-        host = "10.27.0.20"
-        port = 8088
         mass_test_simple_client(host, port)
     else:
         migration_endpoint = ("10.27.0.2", 8089)
         handler = MigrationHandler(listen_endpoint=migration_endpoint)
         handler.start()
-        host = "10.27.0.20"
-        port = 8088
-        efficacy_test_wikipedia(host, port, migration=True)
+        client_socket.connect((host, port))
+        log(f"Connected to {host}:{port}")
+        while True:
+            url = input("Enter a URL to browse (or 'exit' to quit): ")
+            if url.lower() == 'exit':
+                break
+            result = browse_url(url)
+            if result:
+                print(f"Received content from {url}:\n{result[:500]}...")
+        client_socket.close()
+        #efficacy_test_wikipedia(host, port, migration=True)
         # NOTE: Code for all the previous tests
         # choice = input(
         #     "the format is False: no mig - True: with mig. \n0 and 1 for wiki, 2 and 3 for bulk, 4 and 5 for kv.\nstart? "
