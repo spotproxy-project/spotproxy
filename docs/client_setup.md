@@ -1,5 +1,5 @@
 ## Wireguard active migration functionality test:
-All the following steps (except Step 2) should be executed on separate VMs. 
+All the following steps should be executed on separate VMs. 
 
 ### Step 1: Set up the NAT. 
 1. Create an AWS VM running Ubuntu 22.04, with a security group allowing all traffic (for the convenience of artifact evaluation).

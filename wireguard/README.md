@@ -20,7 +20,7 @@ Choose option 1 in the dropdown. After that, the NAT server will be running.
 sudo docker build -t server-image -f ServerDockerfile .
 sudo docker run -it --network host --cap-add=NET_ADMIN --name=server server-image
 ```
-The resultant output of the form `my endpoint is: <main-proxy-public-ip>:51820` indicates that the main proxy is not running successfully. 
+The resultant output of the form `my endpoint is: <main-proxy-public-ip>:51820` indicates that the main proxy is running successfully. 
 
 ## Wireguard client setup
 1. Install Wireguard tools: 
