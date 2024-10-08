@@ -66,7 +66,7 @@ class ForwardingServerThread(threading.Thread):
 
             if src_ip != nat_ip:
                 # if packet is from client, forward it to the NAT server
-                logging.info(f"Packet from client {src_ip} to {dst_ip} (forwarding to NAT)")
+                logging.info(f"Packet from client {src_ip} to {nat_ip} (forwarding to NAT)")
                 forward_thread = ForwardThread(pkt, nat_ip, "client -> server")
                 forward_thread.start()
 
