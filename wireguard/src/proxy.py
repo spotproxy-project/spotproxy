@@ -25,6 +25,7 @@ def get_public_ip():
 class Proxy:
     def __init__(
         self,
+        wireguard_interface,
         wireguard_endpoint,
         nat_endpoint,
         broker_endpoint,
@@ -35,11 +36,13 @@ class Proxy:
         endpoints are tuples of: (address, port)
         """
         self.my_number = int(socket.gethostbyname(socket.gethostname()).split(".")[-1])
+        print(f"hostname(my_number) is: {self.my_number}")
         self.wireguard_endpoint = wireguard_endpoint
         self.nat_endpoint = nat_endpoint
         self.broker_endpoint = broker_endpoint
         self.migration_endpoint = migration_endpoint
         self.polling_endpoint = polling_endpoint
+        self.wireguard_interface = wireguard_interface
 
     def migrate(self, new_proxy_ip):
         start_time = time()
@@ -84,7 +87,7 @@ class Proxy:
         print(f"my endpoint is: {ip}:51820")
 
         forwarding_server = ForwardingServerThread(
-            self.wireguard_endpoint, self.nat_endpoint
+            self.wireguard_interface, self.nat_endpoint
         )
         migration_handler = MigrationHandler(self.migration_endpoint)
         polling_handler = PollingHandler(self.polling_endpoint)

@@ -11,6 +11,7 @@ if len(sys.argv) > 1:
     log(f"nat endpoint set to: {nat_host}:{nat_port}", pr=True)
 
 proxy = Proxy(
+    WIREGUARD_INTERFACE_NAME,
     WIREGUARD_ENDPOINT,
     nat_endpoint,
     BROKER_ENDPOINT,

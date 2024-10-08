@@ -5,9 +5,11 @@ from settings import WIREGUARD_CONFIG_LOCATION
 import psutil
 from time import sleep
 import json
-from logger import log
+#from logger import log
 import logging
 import sys
+from scapy.all import packet, sniff, send
+from scapy.layers.inet import IP
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,79 +26,89 @@ nat_sockets = []
 class ForwardThread(threading.Thread):
     def __init__(
         self,
-        source_socket: socket.socket,
-        destination_socket: socket.socket,
-        description: str,
+        pkt: packet.Packet,
+        dst_ip: str,
+        description: str
     ):
         threading.Thread.__init__(self)
-        self.source_socket = source_socket
-        self.destination_socket = destination_socket
+        self.pkt = pkt
+        self.dst_ip = dst_ip
         self.description = description
 
     def run(self):
-        data = " "
         try:
-            while data:
-                data = self.source_socket.recv(1024)
-                if data:
-                    self.destination_socket.sendall(data)
-                    request = data.decode('utf-8')
-                    if request.startswith('GET') or request.startswith('POST'):
-                        website = request.split()[1]
-                        client_ip = self.source_socket.getpeername()[0]
-                        logging.info(f"Client {client_ip} requested: {website}")
-                else:
-                    try:
-                        self.source_socket.close()
-                        self.destination_socket.close()
-                    except:
-                        # log('connection closed')
-                        break
-        except:
-            # log('connection closed')
-            try:
-                self.source_socket.close()
-            except:
-                pass
-            try:
-                self.destination_socket.close()
-            except:
-                pass
+            logging.info(f"Forwarding packet to {self.dst_ip}")
+            send(self.pkt)
+        except Exception as e:
+            logging.error(f"Error forwarding packet: {e}")
 
 
 class ForwardingServerThread(threading.Thread):
-    def __init__(self, listen_endpoint: tuple, forward_endpoint: tuple):
+    def __init__(self, listen_interface: str, forward_endpoint: tuple):
         threading.Thread.__init__(self)
 
-        self.listen_endpoint = listen_endpoint
+        self.listen_endpoint = listen_interface
         self.forward_endpoint = forward_endpoint
 
-    def run(self):
-        global client_addresses, client_sockets, nat_sockets
-        try:
-            dock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            dock_socket.bind((self.listen_endpoint[0], self.listen_endpoint[1]))
-            dock_socket.listen(5)
-            while True:
-                client_socket, client_address = dock_socket.accept()
-                if client_address not in client_addresses:
-                    client_addresses.append(client_address)
-                    client_sockets.append(client_socket)
-                    logging.info(f"New client connected: {client_address[0]}:{client_address[1]}")
+    def packet_handler(self, pkt: packet.Packet):
+        """
+        This function handles any packet that is captured from the interface.
+        It will forward the packet to the NAT server.
+        """
+        logging.info(f"PACKET: {pkt}")
+        if pkt.haslayer(IP):
+            nat_ip = self.forward_endpoint[0]
+            src_ip = pkt[IP].src
+            dst_ip = pkt[IP].dst
+            
+            if src_ip not in client_addresses:
+                client_addresses.append(src_ip)
 
-                if len(client_addresses) % 10 == 0:
-                    print(len(client_addresses))
-                    logging.info(f"Total clients connected: {len(client_addresses)}")
-                nat_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                nat_socket.connect((self.forward_endpoint[0], self.forward_endpoint[1]))
-                nat_sockets.append(nat_socket)
-                way1 = ForwardThread(client_socket, nat_socket, "client -> server")
-                way2 = ForwardThread(nat_socket, client_socket, "server -> client")
-                way1.start()
-                way2.start()
+            if src_ip != nat_ip:
+                # if packet is from client, forward it to the NAT server
+                logging.info(f"Packet from client {src_ip} to {dst_ip} (forwarding to NAT)")
+                forward_thread = ForwardThread(pkt, nat_ip, "client -> server")
+                forward_thread.start()
+
+            else:
+                # if packet is from NAT, forward it back to the client
+                logging.info(f"Packet from NAT {src_ip} to client {dst_ip} (forwarding to client)")
+                forward_thread = ForwardThread(pkt, dst_ip, "server -> client")
+                forward_thread.start()
+
+
+    def run(self):
+        logging.info(f"Listening for packets on interface {self.listen_endpoint}")
+        try:
+            # Start sniffing packets on the WireGuard interface
+            sniff(iface=self.listen_endpoint, prn=self.packet_handler, store=0)
         except Exception as e:
-            print("ERROR: a fatal error has happened")
-            print(str(e))
+            logging.error(f"Error in packet sniffing: {e}")
+#        global client_addresses, client_sockets, nat_sockets
+#        try:
+#            dock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#            dock_socket.bind((self.listen_endpoint[0], self.listen_endpoint[1]))
+#            dock_socket.listen(5)
+#            while True:
+#                client_socket, client_address = dock_socket.accept()
+#                if client_address not in client_addresses:
+#                    client_addresses.append(client_address)
+#                    client_sockets.append(client_socket)
+#                    logging.info(f"New client connected: {client_address[0]}:{client_address[1]}")
+#
+#                if len(client_addresses) % 10 == 0:
+#                    print(len(client_addresses))
+#                    logging.info(f"Total clients connected: {len(client_addresses)}")
+#                nat_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#                nat_socket.connect((self.forward_endpoint[0], self.forward_endpoint[1]))
+#                nat_sockets.append(nat_socket)
+#                way1 = ForwardThread(client_socket, nat_socket, "client -> server")
+#                way2 = ForwardThread(nat_socket, client_socket, "server -> client")
+#                way1.start()
+#                way2.start()
+#        except Exception as e:
+#            print("ERROR: a fatal error has happened")
+#            print(str(e))
 
 
 class MigratingAgent(threading.Thread):

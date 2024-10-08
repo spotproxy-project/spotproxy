@@ -277,22 +277,38 @@ def mass_test_simple_client(host, port, test_duration=1500):
     log(f"test is done, total time was: {time() - start_time} secs")
     sleep(10)
 
-def browse_url(url):
+def browse_url(url, method="GET", data=None, timeout=10):
     global client_socket
     try:
-        message = f"GET {url}"
+        if not url.startswith(('http://', 'https://')):
+            url = 'http://' + url
+
+        message = f"{method} {url}"
+        if data:
+            message += f"\n{data}"
         client_socket.send(message.encode("utf-8"))
+        
+        client_socket.settimeout(timeout)
         bs = client_socket.recv(8)
         (length,) = unpack(">Q", bs)
         data = b""
-        while len(data) < length:
+        start_time = time()
+        while len(data) < length and time() - start_time < timeout:
             to_read = length - len(data)
             new_data = client_socket.recv(4096 if to_read > 4096 else to_read)
+            if not new_data:
+                break  # Connection closed
             data += new_data
+        client_socket.settimeout(None)  # Reset timeout
+        
+        if len(data) < length:
+            log(f"Incomplete data received for {url}")
         return data.decode('utf-8')
+    except socket.timeout:
+        log(f"Timeout while browsing {url}")
     except Exception as e:
         log(f"Error while browsing {url}: {e}")
-        return None
+    return None
 
 if __name__ == "__main__":
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
