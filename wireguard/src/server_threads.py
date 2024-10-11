@@ -48,21 +48,21 @@ class ForwardThread(threading.Thread):
 
 
 class ForwardingServerThread(threading.Thread):
-    def __init__(self, listen_interface: str, forward_endpoint: tuple):
+    def __init__(self,current_ip, listen_interface: str, forward_endpoint: tuple):
         threading.Thread.__init__(self)
 
         self.listen_endpoint = listen_interface
-        self.forward_endpoint = forward_endpoint
+        self.current_ip = current_ip
+        self.nat_ip = forward_endpoint[0]
 
     def packet_handler(self, pkt: packet.Packet):
         """
         This function handles any packet that is captured from the interface.
         It will forward the packet to the NAT server.
         """
-        logging.info(f"Received packet: {pkt.summary()}")
+        logging.info(f"Received packet: {pkt.summary()}\n")
         logging.debug(f"Full packet details:\n{pkt.show(dump=True)}")
         if pkt.haslayer(IP):
-            nat_ip = self.forward_endpoint[0]
             src_ip = pkt[IP].src
             dst_ip = pkt[IP].dst
             logging.info(f"Processing IP packet: SRC: {src_ip}, DST: {dst_ip}")
@@ -70,11 +70,11 @@ class ForwardingServerThread(threading.Thread):
             if src_ip not in client_addresses:
                 client_addresses.append(src_ip)
 
-            if src_ip != nat_ip:
+            if src_ip != self.nat_ip:
                 # if packet is from client, forward it to the NAT server
-                original_dst = dst_ip
-                pkt[IP].dst = nat_ip
-                logging.info(f"Forwarding to NAT: {src_ip} -> {nat_ip} (original dst: {original_dst})")
+                pkt[IP].src = self.current_ip 
+                pkt[IP].dst = self.nat_ip
+                logging.info(f"Forwarding to NAT: {pkt[IP].src} -> {pkt[IP].dst} (original dst: {dst_ip})")
                 forward_thread = ForwardThread(pkt, "client -> server")
                 forward_thread.start()
 

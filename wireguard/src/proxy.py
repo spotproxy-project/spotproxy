@@ -38,7 +38,7 @@ def check_connectivity():
                 logging.warning(f"Cannot reach internet: {internet_result.stderr}")
         except Exception as e:
             logging.error(f"Error checking connectivity: {e}")
-        sleep(3)
+        sleep(60)
 
 class Proxy:
     def __init__(
@@ -107,7 +107,7 @@ class Proxy:
         connectivity_thread = threading.Thread(target=check_connectivity, daemon=True)
         connectivity_thread.start()
         forwarding_server = ForwardingServerThread(
-            self.wireguard_interface, self.nat_endpoint
+            ip,self.wireguard_interface, self.nat_endpoint
         )
         migration_handler = MigrationHandler(self.migration_endpoint)
         polling_handler = PollingHandler(self.polling_endpoint)
