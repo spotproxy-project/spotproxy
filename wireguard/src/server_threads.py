@@ -5,11 +5,10 @@ from settings import WIREGUARD_CONFIG_LOCATION
 import psutil
 from time import sleep
 import json
-#from logger import log
 import logging
 import sys
 from scapy.all import packet, sniff, send
-from scapy.layers.inet import IP
+from scapy.layers.inet import IP, UDP, TCP
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,18 +26,23 @@ class ForwardThread(threading.Thread):
     def __init__(
         self,
         pkt: packet.Packet,
-        dst_ip: str,
         description: str
     ):
         threading.Thread.__init__(self)
         self.pkt = pkt
-        self.dst_ip = dst_ip
         self.description = description
 
     def run(self):
         try:
-            logging.info(f"Forwarding packet to {self.dst_ip}")
-            send(self.pkt)
+            del self.pkt[IP].chksum
+            if self.pkt.haslayer(TCP):
+                del self.pkt[TCP].chksum
+            elif self.pkt.haslayer(UDP):
+                del self.pkt[UDP].chksum
+
+            logging.info(f"Sending packet ({self.description}): {self.pkt.summary()}")
+            send(self.pkt, verbose=False)
+            logging.info(f"Packet sent successfully ({self.description})")
         except Exception as e:
             logging.error(f"Error forwarding packet: {e}")
 
@@ -55,32 +59,39 @@ class ForwardingServerThread(threading.Thread):
         This function handles any packet that is captured from the interface.
         It will forward the packet to the NAT server.
         """
-        logging.info(f"PACKET: {pkt}")
+        logging.info(f"Received packet: {pkt.summary()}")
+        logging.debug(f"Full packet details:\n{pkt.show(dump=True)}")
         if pkt.haslayer(IP):
             nat_ip = self.forward_endpoint[0]
             src_ip = pkt[IP].src
             dst_ip = pkt[IP].dst
+            logging.info(f"Processing IP packet: SRC: {src_ip}, DST: {dst_ip}")
             
             if src_ip not in client_addresses:
                 client_addresses.append(src_ip)
 
             if src_ip != nat_ip:
                 # if packet is from client, forward it to the NAT server
-                logging.info(f"Packet from client {src_ip} to {nat_ip} (forwarding to NAT)")
-                forward_thread = ForwardThread(pkt, nat_ip, "client -> server")
+                original_dst = dst_ip
+                pkt[IP].dst = nat_ip
+                logging.info(f"Forwarding to NAT: {src_ip} -> {nat_ip} (original dst: {original_dst})")
+                forward_thread = ForwardThread(pkt, "client -> server")
                 forward_thread.start()
 
             else:
-                # if packet is from NAT, forward it back to the client
-                logging.info(f"Packet from NAT {src_ip} to client {dst_ip} (forwarding to client)")
-                forward_thread = ForwardThread(pkt, dst_ip, "server -> client")
-                forward_thread.start()
+                client_ip = client_addresses[0] if client_addresses else None
+                if client_ip:
+                    pkt[IP].dst = client_ip
+                    logging.info(f"Forwarding to client: {src_ip} -> {client_ip}")
+                    forward_thread = ForwardThread(pkt, "server -> client")
+                    forward_thread.start()
+                else:
+                    logging.warning("No client IP available for forwarding")
 
 
     def run(self):
         logging.info(f"Listening for packets on interface {self.listen_endpoint}")
         try:
-            # Start sniffing packets on the WireGuard interface
             sniff(iface=self.listen_endpoint, prn=self.packet_handler, store=0)
         except Exception as e:
             logging.error(f"Error in packet sniffing: {e}")

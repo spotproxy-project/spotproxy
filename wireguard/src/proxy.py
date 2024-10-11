@@ -22,6 +22,24 @@ def get_public_ip():
     return None
 
 
+def check_connectivity():
+    while True:
+        try:
+            nat_result = subprocess.run(["ping", "-c", "1", "172.31.41.62"], capture_output=True, text=True)
+            if nat_result.returncode == 0:
+                logging.info("Connectivity to NAT VM: OK")
+            else:
+                logging.warning(f"Cannot reach NAT VM: {nat_result.stderr}")
+
+            internet_result = subprocess.run(["ping", "-c", "1", "8.8.8.8"], capture_output=True, text=True)
+            if internet_result.returncode == 0:
+                logging.info("Internet connectivity: OK")
+            else:
+                logging.warning(f"Cannot reach internet: {internet_result.stderr}")
+        except Exception as e:
+            logging.error(f"Error checking connectivity: {e}")
+        sleep(3)
+
 class Proxy:
     def __init__(
         self,
@@ -86,6 +104,8 @@ class Proxy:
         ip = get_public_ip()
         print(f"my endpoint is: {ip}:51820")
 
+        connectivity_thread = threading.Thread(target=check_connectivity, daemon=True)
+        connectivity_thread.start()
         forwarding_server = ForwardingServerThread(
             self.wireguard_interface, self.nat_endpoint
         )
