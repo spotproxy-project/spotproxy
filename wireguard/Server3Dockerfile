@@ -1,0 +1,21 @@
+FROM golang:1.23-alpine
+
+RUN apk add --no-cache wireguard-tools nano iputils iproute2 make bash
+
+WORKDIR /app
+
+COPY src/go/go.mod src/go/go.sum ./
+
+RUN go mod download
+
+COPY key_store/server/wg0.conf /etc/wireguard/wg0.conf
+
+COPY src/go/main.go ./
+
+RUN go build -o main . 
+
+COPY startup-scripts/proxy-boot.sh /startup-scripts/proxy-boot.sh
+
+RUN chmod +x /startup-scripts/proxy-boot.sh
+
+CMD ["/bin/bash", "/startup-scripts/proxy-boot.sh"]
