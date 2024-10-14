@@ -8,12 +8,14 @@
 # cd hush-proxy
 
 # make ready name=server # Fix this
-cp key_store/server/wg0.conf /etc/wireguard/
+#cp key_store/server/wg0.conf /etc/wireguard/
 
-pip install -r requirements.txt
+#pip install -r requirements.txt
 
+wg-quick down wg0
 wg-quick up wg0
 
-cd src
+#cd src
 
-python3 server.py
+#python3 server.py
+/app/main

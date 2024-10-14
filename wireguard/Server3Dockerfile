@@ -1,18 +1,16 @@
 FROM golang:1.23-alpine
 
-RUN apk add --no-cache wireguard-tools nano iputils iproute2 make bash
+RUN apk add --no-cache wireguard-tools nano iputils iproute2 make bash gcc musl-dev libpcap-dev linux-headers
 
 WORKDIR /app
 
-COPY src/go/go.mod src/go/go.sum ./
+COPY src/go ./
 
 RUN go mod download
 
 COPY key_store/server/wg0.conf /etc/wireguard/wg0.conf
 
-COPY src/go/main.go ./
-
-RUN go build -o main . 
+RUN go build -o main .
 
 COPY startup-scripts/proxy-boot.sh /startup-scripts/proxy-boot.sh
 

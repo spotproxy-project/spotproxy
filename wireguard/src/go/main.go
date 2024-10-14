@@ -20,24 +20,32 @@ import (
 
 const (
     ifn = "wg0"
-    natIPv4 = "" // Should be filled with NAT IP
+    natIPv4 = "54.242.174.180" // Should set to NAT IP
     snapLen = 1024
     promiscuous = false
-	  timeout     = 30 * time.Second
+	  timeout     = 10 * time.Second
 )
 
 var (
-	clientAddresses  sync.Map
-	currentIPv4       string
+    clientAddresses  sync.Map
+    currentIPv4       string
+    defaultInterface *net.Interface
 )
 
-func main() {
+func init() {
     var err error
+    defaultInterface, err = getDefalutInterface()
+    if err != nil {
+        log.Fatalf("Failed to get default interface: %v", err)
+    }
     currentIPv4, err = getPublicIP()
     if err != nil {
         log.Fatalf("Failed to get public IP: %v", err)
     }
+}
 
+func main() {
+    log.Println("Starting Proxy Server")
     handle, err := pcap.OpenLive(ifn, snapLen, promiscuous, timeout)
     if err != nil {
         log.Fatalf("Error at OpenLive: %v",err)
@@ -45,11 +53,9 @@ func main() {
     defer handle.Close()
 
     packetChan := make(chan *gopacket.Packet, 1000)
-    var wg sync.WaitGroup
 
     go capturePackets(handle, packetChan)
-    wg.Add(1)
-    go worker(handle, packetChan, &wg)
+    go worker(packetChan)
 
     sigChan := make(chan os.Signal, 1)
     defer close(sigChan)
@@ -57,29 +63,49 @@ func main() {
 
     <-sigChan
     close(packetChan)
-    wg.Wait()
 
     log.Println("Packet forwarder shut down gracefully")
 }
 
-func forwardToNATv4(handle *pcap.Handle, pkt *gopacket.Packet, ip *layers.IPv4) {
-	  if ip.SrcIP.String() != natIPv4 {
-        log.Printf("Forwarding to NAT (IPv4): Original SRC: %s, DST: %s", ip.SrcIP, ip.DstIP)
-		    clientAddresses.Store(ip.SrcIP.String(), true)
-        ip.SrcIP = net.ParseIP(currentIPv4)
-        ip.DstIP = net.ParseIP(natIPv4)
+func forwardToNATv4(pkt *gopacket.Packet, ip *layers.IPv4) error {
+    log.Printf("Forwarding to NAT (IPv4): Original SRC: %s, DST: %s", ip.SrcIP, ip.DstIP)
+		clientAddresses.Store(ip.SrcIP.String(), true)
+    ip.SrcIP = net.ParseIP(currentIPv4)
+    ip.DstIP = net.ParseIP(natIPv4)
+    log.Printf("Modified packet: SRC: %s, DST: %s", ip.SrcIP, ip.DstIP)
 
-        if err := updateChecksums(pkt); err != nil {
-            log.Printf("Error updating checksums: %v", err)
-		        return
-        }
+    if err := updateChecksums(pkt); err != nil {
+        return fmt.Errorf("error updating checksum: %v", err)
+    }
 
-        if err := handle.WritePacketData((*pkt).Data()); err != nil {
-            log.Printf("Error sending packet to client: %v", err)
-        } else {
-            log.Printf("Packet forwarded to NAT: %s -> %s", currentIPv4, natIPv4)
-        }
-	  }
+    fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
+    if err != nil {
+        return fmt.Errorf("error creating raw socket: %v", err)
+    }
+    defer syscall.Close(fd)
+
+    err = syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 1)
+    if err != nil {
+        return fmt.Errorf("error setting IP_HDRINCL: %v", err)
+    }
+
+    destIP := ip.DstIP.To4()
+    if destIP == nil {
+        return fmt.Errorf("invalid destination IP")
+    }
+    addr := syscall.SockaddrInet4{
+        Port: 0, 
+        Addr: [4]byte{destIP[0], destIP[1], destIP[2], destIP[3]},
+    }
+
+    err = syscall.Sendto(fd, (*pkt).Data(), 0, &addr)
+    if err != nil {
+        return fmt.Errorf("error sending packet: %v", err)
+    }
+
+    log.Printf("Packet forwarded successfully")
+
+    return nil
 }
 
 func forwardToClientv4(handle *pcap.Handle, pkt *gopacket.Packet, ip *layers.IPv4) {
@@ -121,42 +147,50 @@ func updateChecksums(pkt *gopacket.Packet) error {
 	buf := gopacket.NewSerializeBuffer()
 	opts := gopacket.SerializeOptions{ComputeChecksums: true, FixLengths: true}
 	err := gopacket.SerializePacket(buf, opts, *pkt)
-	if err != nil {
-		return fmt.Errorf("failed to serialize packet: %v", err)
+	if err !=nil {
+        return fmt.Errorf("failed to serialize packet: %v", err)
 	}
 
+  *pkt = gopacket.NewPacket(buf.Bytes(), layers.LayerTypeIPv4, gopacket.Default)
 	return nil
 }
 
 func capturePackets(handle *pcap.Handle, packetChan chan<- *gopacket.Packet) {
     pktSrc := gopacket.NewPacketSource(handle, handle.LinkType())
     for pkt := range pktSrc.Packets() {
-        log.Printf("Captured packet: %s", packetsum(&pkt))
+        log.Printf("Captured packet: %s", packetSummary(&pkt))
         packetChan <- &pkt
     }
 }
 
-func handlePackets(handle *pcap.Handle, pkt *gopacket.Packet) {
+func handlePackets(pkt *gopacket.Packet) {
     log.Println("In HandlePacket")
     ipLayer := (*pkt).Layer(layers.LayerTypeIPv4)
 	  ipv6Layer := (*pkt).Layer(layers.LayerTypeIPv6)
 
-    if ipLayer != nil || ipv6Layer != nil{
-		    forwardToNATv4(handle, pkt, ipLayer.(*layers.IPv4))
+    if ipLayer != nil || ipv6Layer != nil {
+        log.Println("Not an IPv4 packet. Skipping.")
+        return
+    }
+
+    ip, _ := ipLayer.(*layers.IPv4) // might need to check for ok here
+    if ip != nil && ip.SrcIP.String() != natIPv4 {
+        if err := forwardToNATv4(pkt, ip); err != nil {
+            log.Fatalf("could not send to NAT: %v", err)
+        }
 	  } else {
-		    log.Println("Not an IP packet. Skipping.")
+		    log.Println("Packet from NAT. Skipping forwarding.")
 	  }
 }
 
-func worker(handle *pcap.Handle, packetChan <-chan *gopacket.Packet, wg *sync.WaitGroup) {
-    defer wg.Done()
+func worker(packetChan <-chan *gopacket.Packet) {
     for pkt := range packetChan {
-        log.Printf("Got Packet: %v", pkt)
-        handlePackets(handle, pkt)
+        log.Printf("Got Packet: %s", (*pkt).Dump())
+        handlePackets(pkt)
     }    
 }
 
-func packetsum(pkt *gopacket.Packet) string {
+func packetSummary(pkt *gopacket.Packet) string {
     sum := ""
     if ipLayer := (*pkt).Layer(layers.LayerTypeIPv4); ipLayer != nil {
         ip, _ := ipLayer.(*layers.IPv4)
@@ -215,4 +249,28 @@ func getPublicIP() (string, error) {
     }
 
     return ipRes.Origin, nil
+}
+
+func getDefalutInterface() (*net.Interface, error) {
+    interfaces, err := net.Interfaces()
+    if err != nil {
+        return nil, err
+    }
+    for _, iface := range interfaces {
+        if iface.Flags&net.FlagUp != 0 && iface.Flags&net.FlagLoopback == 0 {
+            addrs, err := iface.Addrs()
+            if err != nil {
+                continue
+            }
+
+            for _, addr := range addrs {
+                if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+                    if ipnet.IP.To4() != nil {
+                        return &iface, nil
+                    }
+                }
+            }
+        }
+    }
+    return nil, fmt.Errorf("no suitable interface found")
 }
