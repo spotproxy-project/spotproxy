@@ -158,7 +158,7 @@ func updateChecksums(pkt *gopacket.Packet) error {
 func capturePackets(handle *pcap.Handle, packetChan chan<- *gopacket.Packet) {
     pktSrc := gopacket.NewPacketSource(handle, handle.LinkType())
     for pkt := range pktSrc.Packets() {
-        log.Printf("Captured packet: %s", packetSummary(&pkt))
+        log.Printf("Got Packet: \n%s", pkt.Dump())
         packetChan <- &pkt
     }
 }
@@ -168,7 +168,7 @@ func handlePackets(pkt *gopacket.Packet) {
     ipLayer := (*pkt).Layer(layers.LayerTypeIPv4)
 	  ipv6Layer := (*pkt).Layer(layers.LayerTypeIPv6)
 
-    if ipLayer != nil || ipv6Layer != nil {
+    if ipLayer == nil || ipv6Layer == nil {
         log.Println("Not an IPv4 packet. Skipping.")
         return
     }
@@ -185,42 +185,8 @@ func handlePackets(pkt *gopacket.Packet) {
 
 func worker(packetChan <-chan *gopacket.Packet) {
     for pkt := range packetChan {
-        log.Printf("Got Packet: %s", (*pkt).Dump())
         handlePackets(pkt)
     }    
-}
-
-func packetSummary(pkt *gopacket.Packet) string {
-    sum := ""
-    if ipLayer := (*pkt).Layer(layers.LayerTypeIPv4); ipLayer != nil {
-        ip, _ := ipLayer.(*layers.IPv4)
-		    sum += fmt.Sprintf("IP %s -> %s | ", ip.SrcIP, ip.DstIP)
-    } else if ipLayer := (*pkt).Layer(layers.LayerTypeIPv6); ipLayer != nil {
-		    ip, _ := ipLayer.(*layers.IPv6)
-		    sum += fmt.Sprintf("IPv6 %s -> %s | ", ip.SrcIP, ip.DstIP)
-	  }
-
-
-    if tcpLayer := (*pkt).Layer(layers.LayerTypeTCP); tcpLayer != nil {
-		    tcp, _ := tcpLayer.(*layers.TCP)
-		    sum += fmt.Sprintf("TCP %d -> %d | ", tcp.SrcPort, tcp.DstPort)
-	  }
-
-	  if udpLayer := (*pkt).Layer(layers.LayerTypeUDP); udpLayer != nil {
-        udp, _ := udpLayer.(*layers.UDP)
-        sum += fmt.Sprintf("UDP %d -> %d | ", udp.SrcPort, udp.DstPort)
-    }
-
-    if icmpLayer := (*pkt).Layer(layers.LayerTypeICMPv4); icmpLayer != nil {
-        icmp, _ := icmpLayer.(*layers.ICMPv4)
-        sum += fmt.Sprintf("ICMP %v | ", icmp.Contents)
-    }
-
-    if appLayer := (*pkt).ApplicationLayer(); appLayer != nil {
-        sum += fmt.Sprintf("Payload %d bytes | ", len(appLayer.Payload()))
-    }
-
-    return sum
 }
 
 func getPublicIP() (string, error) {

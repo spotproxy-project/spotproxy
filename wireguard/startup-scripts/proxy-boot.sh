@@ -18,4 +18,4 @@ wg-quick up wg0
 #cd src
 
 #python3 server.py
-/app/main
+./main
