@@ -22,6 +22,7 @@ def echo_server(host, port):
 
 def nat_server(host, port):
     nat_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    nat_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     nat_socket.bind((host, port))
     nat_socket.listen(5)
 
