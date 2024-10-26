@@ -2,7 +2,7 @@
 
 SpotProxy is a cloud-native censorship resistance system that aims to minimize the cost of cloud-hosted proxies by co-opting cloud-native features for circumvention. 
 
-Our current iteration of the project uses cost-effective and high-churn cloud instances to maximize the circumvention utility of cloud-hosted proxies. To achieve this, SpotProxy designs a circumvention infrastructure that constantly searches for cheaper VMs and refreshes the fleet for anti-blocking. On this front, SpotProxy is currently compatible with Snowflake and Wireguard.
+Our current iteration of the project uses cost-effective and high-churn cloud instances to maximize the circumvention utility of cloud-hosted proxies. To achieve this, SpotProxy designs a circumvention infrastructure that constantly searches for cheaper VMs and refreshes the fleet for anti-blocking, with negligible downtime from the user's perspective. On this front, SpotProxy is currently compatible with Snowflake and Wireguard.
 
 **We are actively developing the project. However, as of now, SpotProxy is not production-ready.** 
 
