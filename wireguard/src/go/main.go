@@ -1,6 +1,7 @@
 package main
 
 import (
+  "context"
 	"encoding/json"
   "encoding/binary"
 	"fmt"
@@ -38,7 +39,6 @@ var (
 )
 
 func init() {
-    natPoint := fmt.Sprintf("%s:%s", natIPv4, natPort)
     var err error
     defaultInterface, err = getDefalutInterface()
     if err != nil {
@@ -48,12 +48,6 @@ func init() {
     if err != nil {
         log.Fatalf("Failed to get public IP: %v", err)
     }
-
-    natConn, err = net.Dial("tcp", natPoint)
-    if err != nil {
-        log.Fatalf("Failed to connect to backend server: %v", err)
-    }
-    defer natConn.Close()
 }
 
 func main() {
@@ -64,6 +58,12 @@ func main() {
         log.Fatalf("Error at OpenLive: %v",err)
     }
     defer wgHandle.Close()
+
+    err = connectToNAT()
+    if err != nil {
+        log.Fatalf("Connection to NAT server failed: %v", err)
+    }
+    defer natConn.Close()
 
     dfHndl, err = pcap.OpenLive(defaultInterface.Name, snapLen, promiscuous, pcap.BlockForever)
     if err != nil {
@@ -85,7 +85,18 @@ func main() {
     close(wgPacketChan)
     close(dfPacketChan)
 
+
     log.Println("Proxy server shut down gracefully")
+}
+
+func connectToNAT() error {
+    natPoint := fmt.Sprintf("%s:%s", natIPv4, natPort)
+    var err error
+    natConn, err = net.Dial("tcp", natPoint)
+    if err != nil {
+        return fmt.Errorf("failed to connect to NAT server: %v", err)
+    }
+    return nil
 }
 
 func forwardToNAT(pkt *gopacket.Packet, ip *layers.IPv4) error {
@@ -110,6 +121,7 @@ func forwardToNAT(pkt *gopacket.Packet, ip *layers.IPv4) error {
 }
 
 func readNATPkt(natConn net.Conn, dfPacketChan chan<- *gopacket.Packet) {
+    // TODO: adding reconnection
     for {
         var encapsulatedLen uint32
         err := binary.Read(natConn, binary.BigEndian, &encapsulatedLen)
