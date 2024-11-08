@@ -147,9 +147,6 @@ func readNATPkt(natConn net.Conn, dfPacketChan chan<- *gopacket.Packet) {
 
 
 func forwardToClient(pkt *gopacket.Packet) {
-
-	  clientIP := "10.27.0.2"
-
     ipLayer := (*pkt).Layer(layers.LayerTypeIPv4)
 
     if ipLayer == nil {
@@ -162,7 +159,7 @@ func forwardToClient(pkt *gopacket.Packet) {
     if err := wgHandle.WritePacketData((*pkt).Data()); err != nil {
         log.Printf("Error sending packet to client: %v", err)
     } else {
-        log.Printf("Packet forwarded to client: %s -> %s", natIPv4, clientIP)
+        log.Println("Packet forwarded to client")
     }
 }
 
@@ -174,7 +171,7 @@ func captureWgPackets(wgPacketChan chan<- *gopacket.Packet) {
     }
 }
 
-//we migh not need these
+//we migh not need this
 // Pkt Sent from Client(Proxy -> NAT)
 func handleWgPkt(pkt *gopacket.Packet) {
     log.Println("In HandlePacket")

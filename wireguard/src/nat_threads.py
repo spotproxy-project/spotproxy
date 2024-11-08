@@ -1,11 +1,13 @@
 import threading
+from typing import Optional
 from struct import pack
 import socket
 import struct
 import requests
 import sys
 import os
-from scapy.all import IP, Raw
+from scapy.all import Raw, IP, DNS, TCP, UDP
+from scapy.layers.inet import ICMP
 from time import time
 import redis
 import logging
@@ -56,6 +58,15 @@ class NATThread(threading.Thread):
         self.client_socket = client_socket
         self.client_address = client_address
         self.running = True
+        self.udp_sockets = {} # (dst_ip, dst_port) -> socket
+
+    def get_udp_socket(self, dst_ip: str, dst_port: int) -> socket.socket:
+        """Create or get existing UDP socket for destination"""
+        key = (dst_ip, dst_port)
+        if key not in self.udp_sockets:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.udp_sockets[key] = sock
+        return self.udp_sockets[key]
 
 
     def receive_pkt(self):
@@ -94,22 +105,127 @@ class NATThread(threading.Thread):
             logging.error(f"Error sending response: {e}") 
 
 
-    def process_packet(self, packet_data):
+    def handle_tcp_pkt(self, pkt: IP) -> Optional[bytes]:
+        """Handle TCP packets"""
+        try:
+            tcp_layer = pkt[TCP]
+            dst_ip = pkt[IP].dst
+            dst_port = tcp_layer.dport
+            payload = bytes(tcp_layer.payload)
+
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(10)  # 10 second timeout
+            sock.connect((dst_ip, dst_port))
+
+            if payload:
+                sock.send(payload)
+
+            response = sock.recv(65535)
+            sock.close()
+
+            response_packet = IP(
+                src=pkt[IP].dst,
+                dst=pkt[IP].src,
+                proto=pkt[IP].proto
+            )/TCP(
+                sport=tcp_layer.dport,
+                dport=tcp_layer.sport,
+                flags='A'  # ACK flag
+            )/Raw(load=response)
+
+            return bytes(response_packet)
+
+        except Exception as e:
+            logging.error(f"Error handling TCP packet: {e}")
+            return None
+
+    def handle_udp_pkt(self, packet: IP) -> Optional[bytes]:
+        """Handle UDP packets"""
+        try:
+            udp_layer = packet[UDP]
+            dst_ip = packet[IP].dst
+            dst_port = udp_layer.dport
+            payload = bytes(udp_layer.payload)
+
+            # Get or create UDP socket
+            sock = self.get_udp_socket(dst_ip, dst_port)
+            sock.settimeout(5)
+
+            # Send the payload
+            sock.sendto(payload, (dst_ip, dst_port))
+
+            # Receive response
+            response, _ = sock.recvfrom(65535)
+
+            # Special handling for DNS packets
+            if dst_port == 53 and DNS in packet:
+                response_packet = IP(
+                    src=packet[IP].dst,
+                    dst=packet[IP].src
+                )/UDP(
+                    sport=udp_layer.dport,
+                    dport=udp_layer.sport
+                )/DNS(response)
+            else:
+                response_packet = IP(
+                    src=packet[IP].dst,
+                    dst=packet[IP].src
+                )/UDP(
+                    sport=udp_layer.dport,
+                    dport=udp_layer.sport
+                )/Raw(load=response)
+
+            return bytes(response_packet)
+
+        except Exception as e:
+            logging.error(f"Error handling UDP packet: {e}")
+            return None
+
+    def handle_icmp_pkt(self, packet: IP) -> Optional[bytes]:
+        """Handle ICMP packets (like ping)"""
+        try:
+            dst_ip = packet[IP].dst
+            
+            # Create raw socket for ICMP
+            sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
+            sock.settimeout(5)
+
+            # Send the ICMP packet
+            sock.sendto(bytes(packet[ICMP]), (dst_ip, 0))
+
+            # Receive response
+            response, _ = sock.recvfrom(65535)
+            sock.close()
+
+            # Create response packet
+            response_packet = IP(
+                src=packet[IP].dst,
+                dst=packet[IP].src
+            )/ICMP(response[20:])  # Skip IP header
+
+            return bytes(response_packet)
+
+        except Exception as e:
+            logging.error(f"Error handling ICMP packet: {e}")
+            return None
+
+    def process_packet(self, packet_data) -> bytes | None:
         try:
             # Parse the original packet
             original_packet = IP(packet_data)
             logging.info(f"Processing packet: {original_packet.summary()}")
 
-            response_packet = IP(
-                src=original_packet[IP].dst,
-                dst=original_packet[IP].src,
-                proto=original_packet[IP].proto
-            )
+            if TCP in original_packet:
+                return self.handle_tcp_pkt(original_packet)
+            elif UDP in original_packet:
+                return self.handle_udp_pkt(original_packet)
+            elif ICMP in original_packet:
+                return self.handle_icmp_pkt(original_packet)
+            else:
+                logging.warning(f"Unsupported protocol: {original_packet.proto}")
+                return None
 
-            response_packet = response_packet/Raw(load=bytes(original_packet[IP].payload))
-
-            return bytes(response_packet)
-            
+           
         except Exception as e:
             logging.error(f"Error processing packet: {e}")
             return None
@@ -127,7 +243,6 @@ class NATThread(threading.Thread):
 
                 logging.info(f"Received packet: {len(packet_data)} bytes")
                 
-                # Process the packet
                 response_data = self.process_packet(packet_data)
                 if response_data:
                     self.send_response(response_data)
