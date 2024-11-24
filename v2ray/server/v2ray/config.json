@@ -1,0 +1,24 @@
+{
+  "log": {
+    "loglevel": "debug"
+  },
+  "inbounds": [
+    {
+      "protocol": "vmess",
+      "listen": "0.0.0.0",
+      "port": 10086,
+      "settings": {
+        "clients": [
+          {
+            "id": "deadbeef-dead-beef-dead-beefdeadbeef"
+          }
+        ]
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom"
+    }
+  ]
+}

@@ -7,3 +7,11 @@ total_spot_prices.csv
 instance_manager/misc/rejuvenation_eval/misc/assume-role-output.json
 *.pyc
 .DS_Store
+
+v2ray/client/manager/app
+v2ray/client/manager/common
+v2ray/client/manager/proxy
+v2ray/client/manager/transport
+v2ray/client/manager/*_pb2_grpc.py
+v2ray/client/manager/*_pb2.py
+v2ray/client/manager/*_pb2.pyi

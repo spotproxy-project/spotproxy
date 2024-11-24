@@ -1,0 +1,71 @@
+{
+  "log": {
+    "loglevel": "debug"
+  },
+  "api": {
+    "tag": "api",
+    "services": ["HandlerService", "StatsService"]
+  },
+  "stats": {},
+  "policy": {
+    "system": {
+      "statsInboundUplink": true,
+      "statsInboundDownlink": true,
+      "statsOutboundUplink": true,
+      "statsOutboundDownlink": true
+    }
+  },
+  "inbounds": [
+    {
+      "protocol": "socks",
+      "tag": "spotproxy-inbound",
+      "listen": "0.0.0.0",
+      "port": 1080,
+      "settings": {
+        "udp": true
+      }
+    },
+    {
+      "protocol": "dokodemo-door",
+      "listen": "0.0.0.0",
+      "port": 9090,
+      "settings": {
+        "address": "0.0.0.0"
+      },
+      "tag": "api"
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "vmess",
+      "tag": "spotproxy-outbound",
+      "settings": {
+        "vnext": [
+          {
+            "address": "10.0.1.2",
+            "port": 10086,
+            "users": [
+              {
+                "id": "deadbeef-dead-beef-dead-beefdeadbeef"
+              }
+            ]
+          }
+        ]
+      },
+      "mux": {
+        "enabled": true,
+        "concurrency": 1024
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "AsIs",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": ["api"],
+        "outboundTag": "api"
+      }
+    ]
+  }
+}
