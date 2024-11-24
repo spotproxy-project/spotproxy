@@ -15,12 +15,3 @@ For shells that don't support globstar, you can use the line from the [Dockerfil
 ```bash
 find v2ray-core/ -name '*.proto' -exec python -m grpc_tools.protoc -Iv2ray-core --python_out=. --pyi_out=. --grpc_python_out=. {} +
 ```
-
-## TODO
-
-- speak the same protocol the controller speaks
-- work with NAT
-- respond to requests for usage reports
-- figure out what to do for client auth
-  - figure out how to send config to new proxy (in-memory structure + gRPC?)
-- maybe streamline launch somehow (still liking docker compose)
