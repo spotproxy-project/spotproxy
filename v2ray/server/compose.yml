@@ -1,0 +1,22 @@
+services:
+  server-v2ray:
+    build: v2ray
+    ports:
+      - 10086:10086
+    networks:
+      server-loopback:
+        ipv4_address: 127.0.0.1
+
+  server-manager:
+    build: manager
+    networks:
+      server-loopback:
+        ipv4_address: 127.0.0.1
+
+networks:
+  server-loopback:
+    ipam:
+      config:
+        - subnet: 127.0.0.0/8
+          ip_range: 127.0.0.0/8
+          gateway: 127.0.0.1

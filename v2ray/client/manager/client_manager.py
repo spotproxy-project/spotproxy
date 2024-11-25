@@ -1,3 +1,6 @@
+import inspect
+import re
+import sys
 from types import NoneType
 import socks
 import socket
@@ -14,8 +17,9 @@ from common.protocol.server_spec_pb2 import ServerEndpoint
 from common.protocol.user_pb2 import User
 from proxy.vmess.account_pb2 import Account as VmessAccount
 
+# todo set constants from env
 PROXY_ADDR = "10.255.1.1"
-SERVER_MANAGER_ADDR = "10.254.1.2"
+SERVER_MANAGER_ADDR = "127.0.0.1"
 
 SOCKS_PORT = 1080
 API_PORT = 9090
@@ -38,13 +42,23 @@ def parse_chunks(data: bytes, sizes: list[int]) -> list[bytes]:
     return result
 
 
-def migrate(ip: bytes, port: int) -> NoneType:
-    print(
-        f"proxy migrating to: new address {socket.inet_ntoa(ip)}, port {port}"
+def is_ipv4_address(x: bytes) -> bool:
+    return (
+        re.compile(r"\d{1-3}\.\d{1-3}\.\d{1-3}\.\d{1-3}").fullmatch(x.decode())
+        is not None
     )
 
+
+def log(*args) -> NoneType:
+    calling_frame = inspect.stack()[1]
+    location = f"{calling_frame.function} at {calling_frame.filename}:{calling_frame.lineno}"
+    print(f"[{location}]", *args, file=sys.stderr)
+
+
+def migrate(ip: str, port: int) -> NoneType:
+    log(f"proxy migrating to: new address {ip}, port {port}")
+
     remove_req = command_pb2.RemoveOutboundRequest(tag="spotproxy-outbound")
-    print(f"*** remove_req: {remove_req}")
 
     sender_config = SenderConfig(
         multiplex_settings=MultiplexingConfig(
@@ -60,7 +74,7 @@ def migrate(ip: bytes, port: int) -> NoneType:
     proxy_config = vmess.Config(
         Receiver=[
             ServerEndpoint(
-                address=IPOrDomain(ip=ip),
+                address=IPOrDomain(ip=socket.inet_aton(ip)),
                 port=port,
                 user=[
                     User(
@@ -78,18 +92,17 @@ def migrate(ip: bytes, port: int) -> NoneType:
         proxy_settings=proxy,
     )
     add_req = command_pb2.AddOutboundRequest(outbound=outbound)
-    print(f"*** add_req: {add_req}")
 
     with grpc.insecure_channel(f"{PROXY_ADDR}:{API_PORT}") as channel:
         stub = command_pb2_grpc.HandlerServiceStub(channel)
 
         remove_response = stub.RemoveOutbound(remove_req)
-        print(f"[remove] gRPC API returned response: {remove_response}")
+        log(f"gRPC API (remove) returned response: {remove_response}")
 
         add_response = stub.AddOutbound(add_req)
-        print(f"[add] gRPC API returned response: {add_response}")
+        log(f"gRPC API (add) returned response: {add_response}")
 
-    print(f"migrate {socket.inet_ntoa(ip)} complete!")
+    log(f"migrate {ip} complete!")
 
 
 def handle(manager_ip: str, manager_port: int) -> tuple[str, int]:
@@ -100,29 +113,35 @@ def handle(manager_ip: str, manager_port: int) -> tuple[str, int]:
         # Connect to server manager through the proxy
         time.sleep(1)
         outbound.connect((manager_ip, manager_port))
-        print(f"connected to {manager_ip}:{manager_port}")
+        log(f"connected to {manager_ip}:{manager_port}")
 
-        msg = outbound.recv(12, socket.MSG_WAITALL)
-        print(f"recv'd data on migration connection: {msg}")
-        new_server_ip, new_server_port, new_manager_ip, new_manager_port = (
-            parse_chunks(msg, [4, 2, 4, 2])
-        )
-        print(
-            f"received new_proxy_ip {socket.inet_ntoa(new_server_ip)} and new_proxy_port {int.from_bytes(new_server_port, "big")}"
-        )
-        print(
-            f"received new_manager_ip {socket.inet_ntoa(new_manager_ip)} and new_manager_port {int.from_bytes(new_manager_port, "big")}"
-        )
+        MAX_MESSAGE_LENGTH = len(b"XXX.XXX.XXX.XXX")
 
-    migrate(new_server_ip, int.from_bytes(new_server_port, "big"))
-    return socket.inet_ntoa(new_manager_ip), int.from_bytes(
-        new_manager_port, "big"
+        msg = b""
+        while data := outbound.recv(MAX_MESSAGE_LENGTH - len(msg)):
+            msg += data
+
+    log(f"recv'd data on migration connection: {msg}")
+    if not is_ipv4_address(msg):
+        log(f"message not an IPv4 address, ignoring: {msg}")
+        return manager_ip, manager_port
+
+    new_server_ip, new_server_port = msg.decode(), PROXY_PORT
+    new_manager_ip, new_manager_port = "127.0.0.1", MIGRATION_PORT
+
+    log(
+        f"received new_proxy_ip {new_server_ip} and new_proxy_port {new_server_port}"
     )
+    log(
+        f"received new_manager_ip {new_manager_ip} and new_manager_port {new_manager_port}"
+    )
+
+    migrate(new_server_ip, new_server_port)
+    return new_manager_ip, new_manager_port
 
 
 def main() -> NoneType:
-    time.sleep(10)
-    print("starting main")
+    log("starting main")
     manager_ip = SERVER_MANAGER_ADDR
     manager_port = MIGRATION_PORT
     while True:
