@@ -5,7 +5,13 @@ import psutil
 import requests
 from time import time, sleep
 
-from settings import *
+from settings import (
+    TESTING_MIGRATION_TIMES,
+    TESTING_MIGRATION_DESTS,
+    MIGRATION_DURATION_LOG_PATH,
+    CONTROLLER_IP_ADDRESS,
+    BROKER_PORT,
+)
 from logger import log
 
 
@@ -117,8 +123,12 @@ class TrafficMeasurementPythonThread(threading.Thread):
             except:
                 sleep(0.01)
                 continue
-            bytes_per_second_in = current_stats.bytes_recv - old_stats.bytes_recv
-            bytes_per_second_out = current_stats.bytes_sent - old_stats.bytes_sent
+            bytes_per_second_in = (
+                current_stats.bytes_recv - old_stats.bytes_recv
+            )
+            bytes_per_second_out = (
+                current_stats.bytes_sent - old_stats.bytes_sent
+            )
 
             with open("throughput_p_i.txt", "a") as file:
                 file.write(str(bytes_per_second_in) + "\n")
@@ -139,7 +149,7 @@ class TestingMigrationSenderThread(threading.Thread):
         self.duration = duration
 
     def run(self):
-        log(f"==== test migration sender running...")
+        log("==== test migration sender running...")
         counters = [0] * len(TESTING_MIGRATION_TIMES)
         is_done = 0
         while True:
@@ -148,11 +158,13 @@ class TestingMigrationSenderThread(threading.Thread):
             for i in range(len(TESTING_MIGRATION_TIMES) - 1, -1, -1):
                 if TESTING_MIGRATION_TIMES[i] < right_now and counters[i] == 0:
                     # TESTING_MIGRATION_DESTS
-                    log(f"sending to {i} to migrate to {i+1}")
+                    log(f"sending to {i} to migrate to {i + 1}")
                     ip_src = TESTING_MIGRATION_DESTS[i]
                     ip_dest = TESTING_MIGRATION_DESTS[i + 1]
 
-                    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    client_socket = socket.socket(
+                        socket.AF_INET, socket.SOCK_STREAM
+                    )
                     client_socket.connect((ip_src, BROKER_PORT))
 
                     message = f"migrate {ip_dest}"
