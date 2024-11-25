@@ -1,5 +1,11 @@
 from proxy import Proxy
-from settings import *
+from settings import (
+    NAT_ENDPOINT,
+    WIREGUARD_ENDPOINT,
+    BROKER_ENDPOINT,
+    MIGRATION_ENDPOINT,
+    POLLING_ENDPOINT,
+)
 import sys
 from logger import log
 

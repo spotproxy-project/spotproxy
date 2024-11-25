@@ -5,7 +5,6 @@ from settings import WIREGUARD_CONFIG_LOCATION
 import psutil
 from time import sleep
 import json
-from logger import log
 
 client_addresses = []
 client_sockets = []
@@ -25,29 +24,9 @@ class ForwardThread(threading.Thread):
         self.description = description
 
     def run(self):
-        data = " "
-        try:
-            while data:
-                data = self.source_socket.recv(1024)
-                if data:
-                    self.destination_socket.sendall(data)
-                else:
-                    try:
-                        self.source_socket.close()
-                        self.destination_socket.close()
-                    except:
-                        # log('connection closed')
-                        break
-        except:
-            # log('connection closed')
-            try:
-                self.source_socket.close()
-            except:
-                pass
-            try:
-                self.destination_socket.close()
-            except:
-                pass
+        with self.source_socket, self.destination_socket:
+            while data := self.source_socket.recv(1024):
+                self.destination_socket.sendall(data)
 
 
 class ForwardingServerThread(threading.Thread):
@@ -72,10 +51,16 @@ class ForwardingServerThread(threading.Thread):
                 if len(client_addresses) % 10 == 0:
                     print(len(client_addresses))
                 nat_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                nat_socket.connect((self.forward_endpoint[0], self.forward_endpoint[1]))
+                nat_socket.connect(
+                    (self.forward_endpoint[0], self.forward_endpoint[1])
+                )
                 nat_sockets.append(nat_socket)
-                way1 = ForwardThread(client_socket, nat_socket, "client -> server")
-                way2 = ForwardThread(nat_socket, client_socket, "server -> client")
+                way1 = ForwardThread(
+                    client_socket, nat_socket, "client -> server"
+                )
+                way2 = ForwardThread(
+                    nat_socket, client_socket, "server -> client"
+                )
                 way1.start()
                 way2.start()
         except Exception as e:
@@ -89,16 +74,12 @@ class MigratingAgent(threading.Thread):
         self.client_socket = client_socket
 
     def run(self):
-        data = " "
-        full_file_data = b""
         # log(f"==== recieving migration data")
-        while data:
-            data = self.client_socket.recv(1024)
-            if data:
-                full_file_data += data
-            else:
-                self.client_socket.shutdown(socket.SHUT_RD)
-                break
+        full_file_data = b""
+        while data := self.client_socket.recv(1024):
+            full_file_data += data
+        self.client_socket.shutdown(socket.SHUT_RD)
+
         migration_string = full_file_data.decode()
         peers = migration_string.split("Peer")
         if len(peers) == 1:
@@ -118,7 +99,8 @@ class MigratingAgent(threading.Thread):
                     allowed_ips = line[line.find("=") + 1 :].strip()
 
             subprocess.run(
-                f'wg set wg0 peer "{public_key}" allowed-ips {allowed_ips}', shell=True
+                f'wg set wg0 peer "{public_key}" allowed-ips {allowed_ips}',
+                shell=True,
             )
             subprocess.run(f"ip -4 route add {allowed_ips} dev wg0", shell=True)
 
@@ -158,7 +140,9 @@ def calculate_network_throughput(interval=0.01):
     net_io_before = psutil.net_io_counters()
     sleep(interval)
     net_io_after = psutil.net_io_counters()
-    sent_throughput = (net_io_after.bytes_sent - net_io_before.bytes_sent) / interval
+    sent_throughput = (
+        net_io_after.bytes_sent - net_io_before.bytes_sent
+    ) / interval
 
     return sent_throughput
 
