@@ -1,8 +1,12 @@
-from server_threads import *
-from settings import *
+from server_threads import (
+    MigrationHandler,
+    ForwardingServerThread,
+    PollingHandler,
+)
+from settings import MIGRATION_PORT, WIREGUARD_CONFIG_LOCATION, WIREGUARD_PORT
 import requests
-from logger import log
 from time import time
+import socket
 
 
 def get_public_ip():
@@ -15,7 +19,7 @@ def get_public_ip():
             # log(f"Failed to retrieve public IP. Status code: {response.status_code}")
             pass
 
-    except requests.RequestException as e:
+    except requests.RequestException:
         # log(f"Request error: {e}")
         pass
 
@@ -34,7 +38,9 @@ class Proxy:
         """
         endpoints are tuples of: (address, port)
         """
-        self.my_number = int(socket.gethostbyname(socket.gethostname()).split(".")[-1])
+        self.my_number = int(
+            socket.gethostbyname(socket.gethostname()).split(".")[-1]
+        )
         self.wireguard_endpoint = wireguard_endpoint
         self.nat_endpoint = nat_endpoint
         self.broker_endpoint = broker_endpoint
@@ -66,7 +72,7 @@ class Proxy:
             s.connect((address[0], MIGRATION_PORT))
             s.sendall(f"{new_proxy_address}:{WIREGUARD_PORT}".encode())
             s.close()
-        print(f"sent to all successfully! GGs.")
+        print("sent to all successfully! GGs.")
 
         nat_sockets = []
         migration_time = time() - start_time
@@ -98,10 +104,10 @@ class Proxy:
 
         while True:
             broker_socket, broker_address = dock_socket.accept()
-            
+
             data = broker_socket.recv(1024)
 
-            print(f'INFO: got message from {broker_address}: {data.decode()}')
+            print(f"INFO: got message from {broker_address}: {data.decode()}")
 
             command = data.decode().strip().lower().split()
             broker_socket.close()
@@ -112,4 +118,4 @@ class Proxy:
                 else:
                     self.migrate(f"172.17.0.{self.my_number + 1}")
             else:
-                print('ERROR: Unknown command. Ignoring...')
+                print("ERROR: Unknown command. Ignoring...")
