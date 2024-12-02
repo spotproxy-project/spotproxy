@@ -7,7 +7,7 @@ Our current iteration of the project uses cost-effective and high-churn cloud in
 **We are actively developing the project. However, as of now, SpotProxy is not production-ready.** 
 
 ## 📰 News
-- **[2024-08]**: We presented SpotProxy at USENIX Security 2024! Our slides can be found [here](https://www.usenix.org/conference/usenixsecurity24/presentation/kon).
+- **[2024-08]**: We presented SpotProxy at USENIX Security 2024! Check out our [slides](https://www.usenix.org/conference/usenixsecurity24/presentation/kon) and [presentation video](https://www.youtube.com/watch?v=kx_wHENtCL8).
 - **[2024-08]**: SpotProxy has been awarded the *Artifact Functional* and *Artifact Available* badges by USENIX Security 2024!
 - **[2024-07]**: SpotProxy has been accepted to USENIX Security 2024! See you in Philadelphia!
 
