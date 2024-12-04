@@ -625,6 +625,19 @@ def use_UM_launch_templates(ec2, region, proxy_impl, type="main"):
         launch_template = 'NOT-SUPPORTED-YET'
     return launch_template
 
+
+def use_ragob_launch_templates(ec2, instance_type):
+    instance_info = get_instance_type(ec2, [instance_type])
+    arch = instance_info['InstanceTypes'][0]['ProcessorInfo']['SupportedArchitectures'][0]
+    match arch:
+        case "arm64":
+            return "lt-038be829389419555"
+        case "x86_64":
+            return "lt-053f9aacf4be60b60"
+        case _:
+            return f"unsupported architecture: {arch}"
+
+
 def print_create_fleet_response(ec2, response):
     print(response['FleetId'])
     all_instance_details = get_specific_instances_with_fleet_id_tag(ec2, response['FleetId']) 
@@ -657,7 +670,7 @@ def create_initial_fleet_and_periodic_rejuvenation_thread(ec2, input_args, quick
 
     launch_templates = []
 
-    if PROXY_IMPL == 'snowflake' or PROXY_IMPL == 'wireguard':
+    if PROXY_IMPL in {'snowflake', 'wireguard', 'v2ray'}:
         # launch_templates.extend([input_args['launch-template-main'], input_args['launch-template-side'], input_args['launch-template-peer']]) # main: is the first (and is a single) proxy to connect to, and peer is a client. side is the rest of the proxies. TODO: add creation of a single main and peer later here in this script. 
         launch_templates.append(input_args['launch-template'])
     else:
