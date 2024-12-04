@@ -4,19 +4,19 @@ services:
     ports:
       - 10086:10086
     networks:
-      server-loopback:
-        ipv4_address: 127.0.0.1
+      server-local:
+        ipv4_address: 10.254.1.1
 
   server-manager:
     build: manager
     networks:
-      server-loopback:
-        ipv4_address: 127.0.0.1
+      server-local:
+        ipv4_address: 10.254.1.2
 
 networks:
-  server-loopback:
+  server-local:
     ipam:
       config:
-        - subnet: 127.0.0.0/8
-          ip_range: 127.0.0.0/8
-          gateway: 127.0.0.1
+        - subnet: 10.254.0.0/16
+          ip_range: 10.254.0.0/16
+          gateway: 10.254.0.1
