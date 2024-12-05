@@ -91,7 +91,7 @@ def update_spot_prices(ec2):
     spot_prices: List[Dict[str, str]] = []
     #get instance types in a batch of 50
     item_count = len(responses['SpotPriceHistory'])
-    batch_size = 100
+    batch_size = 1
     type_to_NIC = {}
     for i in range(0, item_count, batch_size):
         batch = responses['SpotPriceHistory'][i:i+batch_size]
@@ -99,14 +99,19 @@ def update_spot_prices(ec2):
         for response in batch:
             instance_types.append(response['InstanceType'])
         #get instance types
-        instance_types_response = ec2.describe_instance_types(
-            InstanceTypes=instance_types
-        )
+        try:
+            instance_types_response = ec2.describe_instance_types(
+                InstanceTypes=instance_types
+            )
+        except Exception:
+            continue
         #add instance types to spot price history
         for response in instance_types_response['InstanceTypes']:
             type_to_NIC[response['InstanceType']] = response['NetworkInfo']['MaximumNetworkInterfaces']
     #add price per interface to spot price history
     for response in responses['SpotPriceHistory']:
+        if response['InstanceType'] not in type_to_NIC:
+            continue
         spot_prices.append({
             'AvailabilityZone': response['AvailabilityZone'],
             'InstanceType': response['InstanceType'],
@@ -732,7 +737,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             case 'interrupt':
                 id = path[1]
                 response = terminate_instances(self.ec2, [id])
-                launch_template = use_jinyu_launch_templates(self.ec2, current_type)
+                launch_template = use_ragob_launch_templates(self.ec2, current_type)
                 create_fleet(self.ec2, current_type, region, launch_template, 1)
                 self._set_response()
                 self.wfile.write(response.encode('utf-8'))
