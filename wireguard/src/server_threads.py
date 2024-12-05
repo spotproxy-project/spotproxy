@@ -41,7 +41,7 @@ class ForwardThread(threading.Thread):
                 del self.pkt[UDP].chksum
 
             logging.info(f"Sending packet ({self.description}): {self.pkt.summary()}")
-            send(self.pkt, verbose=False)
+            send(self.pkt, verbose=True)
             logging.info(f"Packet sent successfully ({self.description})")
         except Exception as e:
             logging.error(f"Error forwarding packet: {e}")

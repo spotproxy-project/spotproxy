@@ -1,7 +1,7 @@
 #!/bin/bash
 
-apt update
-apt install git wireguard-tools nano iputils-ping iproute2 make python3 python3-pip -y
+#apt update
+#apt install git wireguard-tools nano iputils-ping iproute2 make python3 python3-pip -y
 
 # git clone https://github.com/johnsinak/hush-proxy.git
 

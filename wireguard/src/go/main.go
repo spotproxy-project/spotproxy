@@ -1,7 +1,6 @@
 package main
 
 import (
-  "context"
 	"encoding/json"
   "encoding/binary"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -22,7 +20,7 @@ import (
 
 const (
     ifn = "wg0"
-    natIPv4 = "54.242.174.180" // Should set to NAT IP
+    natIPv4 = "54.164.191.175" // Should set to NAT IP
     natPort = "8000"
     snapLen = 1024
     promiscuous = false
@@ -30,7 +28,6 @@ const (
 )
 
 var (
-    clientAddresses  sync.Map
     currentIPv4       string
     defaultInterface *net.Interface
     natConn net.Conn
@@ -99,9 +96,10 @@ func connectToNAT() error {
     return nil
 }
 
+// Modified packet structure: [4 bytes total length][packet data]
 func forwardToNAT(pkt *gopacket.Packet, ip *layers.IPv4) error {
-    log.Printf("Forwarding to NAT (IPv4): Original SRC: %s, DST: %s", ip.SrcIP, ip.DstIP)
-		clientAddresses.Store(ip.SrcIP.String(), true)
+    log.Printf("Forwarding to NAT (IPv4): Client IP: %s, DST: %s", 
+               ip.SrcIP, ip.DstIP)
 
     pdata := (*pkt).Data()
     plen := uint32(len(pdata))
@@ -134,37 +132,22 @@ func readNATPkt(natConn net.Conn, dfPacketChan chan<- *gopacket.Packet) {
             continue
         }
 
-        encapsulatedData := make([]byte, encapsulatedLen)
-        _, err = io.ReadFull(natConn, encapsulatedData)
+        data := make([]byte, encapsulatedLen)
+        _, err = io.ReadFull(natConn, data)
         if err != nil {
             log.Printf("Error reading encapsulated packet data: %v", err)
             continue
         }
-
-        originalLen := binary.BigEndian.Uint32(encapsulatedData[:4])
-
-        originalData := encapsulatedData[4:]
-
-        if uint32(len(originalData)) != originalLen {
-            log.Printf("Mismatch in packet length: expected %d, got %d", originalLen, len(originalData))
-            continue
-        }
-
-        pkt := gopacket.NewPacket(originalData, layers.LayerTypeIPv4, gopacket.Default)
+        pkt := gopacket.NewPacket(data, layers.LayerTypeIPv4, gopacket.Default)
         dfPacketChan <- &pkt
 
-        log.Printf("Received and extracted original packet from NAT: %d bytes", originalLen)
+        log.Println("Received and extracted original packet from NAT")
     }
 }
 
 
 func forwardToClient(pkt *gopacket.Packet) {
     ipLayer := (*pkt).Layer(layers.LayerTypeIPv4)
-
-    if ipLayer == nil {
-        log.Println("Not an IPv4 packet. Skipping.")
-        return
-    }
 
     ip, _ := ipLayer.(*layers.IPv4) // might need to check for ok here
     log.Printf("Forwarding from Client (IPv4): Original SRC: %s, DST: %s", ip.SrcIP, ip.DstIP)
@@ -202,19 +185,13 @@ func handleWgPkt(pkt *gopacket.Packet) {
 	  } 
 }
 
-// Pkt Sent From NAT (Proxy -> Client)
-// this func finds which client should recieve pkt
-func handleDftPkt(pkt *gopacket.Packet) {
-   forwardToClient(pkt) 
-}
-
 func worker(wgPacketChan <-chan *gopacket.Packet, dfPacketChan <-chan *gopacket.Packet) {
     for {
         select {
         case pkt := <- wgPacketChan:
             handleWgPkt(pkt)
         case pkt := <- dfPacketChan:
-            handleDftPkt(pkt)
+            forwardToClient(pkt)
         }
     }
 }
