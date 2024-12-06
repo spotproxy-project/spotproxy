@@ -91,7 +91,13 @@ def update_spot_prices(ec2):
     spot_prices: List[Dict[str, str]] = []
     #get instance types in a batch of 50
     item_count = len(responses['SpotPriceHistory'])
-    batch_size = 100
+    # Workaround: batch size 1 allows us to ignore errors raised by describe_instance_type
+    #   without dropping other instance types as collateral damage
+    # describe_spot_price_history above often returns instance types describe_instance_type
+    #   doesn't regognize, no idea why
+    # Eventually going to want to figure this out and revert the changes in this function
+    #   made in commit e7493d1b
+    batch_size = 1
     type_to_NIC = {}
     for i in range(0, item_count, batch_size):
         batch = responses['SpotPriceHistory'][i:i+batch_size]
@@ -99,14 +105,19 @@ def update_spot_prices(ec2):
         for response in batch:
             instance_types.append(response['InstanceType'])
         #get instance types
-        instance_types_response = ec2.describe_instance_types(
-            InstanceTypes=instance_types
-        )
+        try:
+            instance_types_response = ec2.describe_instance_types(
+                InstanceTypes=instance_types
+            )
+        except Exception:
+            continue
         #add instance types to spot price history
         for response in instance_types_response['InstanceTypes']:
             type_to_NIC[response['InstanceType']] = response['NetworkInfo']['MaximumNetworkInterfaces']
     #add price per interface to spot price history
     for response in responses['SpotPriceHistory']:
+        if response['InstanceType'] not in type_to_NIC:
+            continue
         spot_prices.append({
             'AvailabilityZone': response['AvailabilityZone'],
             'InstanceType': response['InstanceType'],
@@ -625,6 +636,25 @@ def use_UM_launch_templates(ec2, region, proxy_impl, type="main"):
         launch_template = 'NOT-SUPPORTED-YET'
     return launch_template
 
+
+def use_v2ray_launch_templates(ec2, instance_type):
+    """
+    Use launch templates for v2ray proxies
+
+    Much like use_jinyu_launch_templates, but these two launch templates have
+    ../v2ray/server/proxy-boot.sh as their boot scripts
+    """
+    instance_info = get_instance_type(ec2, [instance_type])
+    arch = instance_info['InstanceTypes'][0]['ProcessorInfo']['SupportedArchitectures'][0]
+    match arch:
+        case "arm64":
+            return "lt-038be829389419555"
+        case "x86_64":
+            return "lt-053f9aacf4be60b60"
+        case _:
+            return f"unsupported architecture: {arch}"
+
+
 def print_create_fleet_response(ec2, response):
     print(response['FleetId'])
     all_instance_details = get_specific_instances_with_fleet_id_tag(ec2, response['FleetId']) 
@@ -657,7 +687,7 @@ def create_initial_fleet_and_periodic_rejuvenation_thread(ec2, input_args, quick
 
     launch_templates = []
 
-    if PROXY_IMPL == 'snowflake' or PROXY_IMPL == 'wireguard':
+    if PROXY_IMPL in {'snowflake', 'wireguard', 'v2ray'}:
         # launch_templates.extend([input_args['launch-template-main'], input_args['launch-template-side'], input_args['launch-template-peer']]) # main: is the first (and is a single) proxy to connect to, and peer is a client. side is the rest of the proxies. TODO: add creation of a single main and peer later here in this script. 
         launch_templates.append(input_args['launch-template'])
     else:

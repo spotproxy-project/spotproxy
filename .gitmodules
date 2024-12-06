@@ -1,0 +1,3 @@
+[submodule "v2ray/client/manager/v2ray-core"]
+	path = v2ray/client/manager/v2ray-core
+	url = https://github.com/v2fly/v2ray-core.git

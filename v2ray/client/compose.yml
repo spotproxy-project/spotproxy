@@ -1,0 +1,22 @@
+services:
+  client-v2ray:
+    build: v2ray
+    ports:
+      - 1080:1080
+    networks:
+      client-loopback:
+        ipv4_address: 10.255.1.1
+
+  client-manager:
+    build: manager
+    networks:
+      client-loopback:
+        ipv4_address: 10.255.1.2
+
+networks:
+  client-local:
+    ipam:
+      config:
+        - subnet: 10.255.0.0/16
+          ip_range: 10.255.0.0/16
+          gateway: 10.255.0.1

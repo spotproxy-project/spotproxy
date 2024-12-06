@@ -1,0 +1,22 @@
+services:
+  server-v2ray:
+    build: v2ray
+    ports:
+      - 10086:10086
+    networks:
+      server-local:
+        ipv4_address: 10.254.1.1
+
+  server-manager:
+    build: manager
+    networks:
+      server-local:
+        ipv4_address: 10.254.1.2
+
+networks:
+  server-local:
+    ipam:
+      config:
+        - subnet: 10.254.0.0/16
+          ip_range: 10.254.0.0/16
+          gateway: 10.254.0.1

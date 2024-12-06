@@ -1,0 +1,76 @@
+# This is really only useful for testing V2Ray behavior.
+# `docker compose up` in this directory will create a little client-server setup that
+# accepts SOCKS5 traffic on localhost:1080 and proxies it through a local V2Ray instance.
+services:
+  client-manager:
+    build: client/manager
+    networks:
+      client-local:
+        ipv4_address: 10.255.1.2
+    develop:
+      watch:
+        - path: client/manager/client_manager.py
+          target: /opt/spotproxy-v2ray/client_manager.py
+          action: sync+restart
+
+  client-v2ray:
+    build: client/v2ray
+    ports:
+      - 1080:1080
+      - 9090:9090
+    networks:
+      client-local:
+        ipv4_address: 10.255.1.1
+      censored:
+        ipv4_address: 10.0.1.1
+    develop:
+      watch:
+        - path: ./config.json
+          target: /etc/v2ray/config.json
+          action: sync+restart
+
+  server-v2ray:
+    build: server/v2ray
+    networks:
+      server-local:
+        ipv4_address: 10.254.1.1
+      censored:
+        ipv4_address: 10.0.1.2
+    develop:
+      watch:
+        - path: ./config.json
+          target: /etc/v2ray/config.json
+          action: sync+restart
+
+  server-manager:
+    build: server/manager
+    networks:
+      server-local:
+        ipv4_address: 10.254.1.2
+    develop:
+      watch:
+        - path: server/manager/server_manager.py
+          target: /opt/spotproxy-v2ray/server_manager.py
+          action: sync+restart
+
+networks:
+  client-local:
+    ipam:
+      config:
+        - subnet: 10.255.0.0/16
+          ip_range: 10.255.0.0/16
+          gateway: 10.255.0.1
+
+  server-local:
+    ipam:
+      config:
+        - subnet: 10.254.0.0/16
+          ip_range: 10.254.0.0/16
+          gateway: 10.254.0.1
+
+  censored:
+    ipam:
+      config:
+        - subnet: 10.0.0.0/16
+          ip_range: 10.0.0.0/16
+          gateway: 10.0.0.1
