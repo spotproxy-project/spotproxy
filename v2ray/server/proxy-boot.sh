@@ -20,6 +20,6 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plu
 
 sudo apt-get install -y git
 
-git clone --branch=v2ray https://github.com/khuldraeseth/spotproxy.git
+git clone https://github.com/spotproxy-project/spotproxy.git
 cd spotproxy/v2ray/server || exit 1
 sudo docker compose up

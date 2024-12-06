@@ -1,3 +1,6 @@
+# This is really only useful for testing V2Ray behavior.
+# `docker compose up` in this directory will create a little client-server setup that
+# accepts SOCKS5 traffic on localhost:1080 and proxies it through a local V2Ray instance.
 services:
   client-manager:
     build: client/manager

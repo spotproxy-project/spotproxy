@@ -91,6 +91,12 @@ def update_spot_prices(ec2):
     spot_prices: List[Dict[str, str]] = []
     #get instance types in a batch of 50
     item_count = len(responses['SpotPriceHistory'])
+    # Workaround: batch size 1 allows us to ignore errors raised by describe_instance_type
+    #   without dropping other instance types as collateral damage
+    # describe_spot_price_history above often returns instance types describe_instance_type
+    #   doesn't regognize, no idea why
+    # Eventually going to want to figure this out and revert the changes in this function
+    #   made in commit e7493d1b
     batch_size = 1
     type_to_NIC = {}
     for i in range(0, item_count, batch_size):
@@ -631,7 +637,13 @@ def use_UM_launch_templates(ec2, region, proxy_impl, type="main"):
     return launch_template
 
 
-def use_ragob_launch_templates(ec2, instance_type):
+def use_v2ray_launch_templates(ec2, instance_type):
+    """
+    Use launch templates for v2ray proxies
+
+    Much like use_jinyu_launch_templates, but these two launch templates have
+    ../v2ray/server/proxy-boot.sh as their boot scripts
+    """
     instance_info = get_instance_type(ec2, [instance_type])
     arch = instance_info['InstanceTypes'][0]['ProcessorInfo']['SupportedArchitectures'][0]
     match arch:
@@ -737,7 +749,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             case 'interrupt':
                 id = path[1]
                 response = terminate_instances(self.ec2, [id])
-                launch_template = use_ragob_launch_templates(self.ec2, current_type)
+                launch_template = use_jinyu_launch_templates(self.ec2, current_type)
                 create_fleet(self.ec2, current_type, region, launch_template, 1)
                 self._set_response()
                 self.wfile.write(response.encode('utf-8'))

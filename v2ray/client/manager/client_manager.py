@@ -17,7 +17,6 @@ from common.protocol.server_spec_pb2 import ServerEndpoint
 from common.protocol.user_pb2 import User
 from proxy.vmess.account_pb2 import Account as VmessAccount
 
-# todo set constants from env
 PROXY_ADDR = "10.255.1.1"
 SERVER_MANAGER_ADDR = "127.0.0.1"
 
@@ -28,17 +27,14 @@ PROXY_PORT = 10086
 
 
 def make_any(value: any) -> any_pb2.Any:
+    """
+    Pack value into an Any object
+    """
     result = any_pb2.Any()
     result.Pack(value)
+    # workaround for some weird Pack behavior - it always prepends this domain even when
+    #  it doesn't make sense, like for message types defined in the project
     result.type_url = result.type_url.removeprefix("type.googleapis.com/")
-    return result
-
-
-def parse_chunks(data: bytes, sizes: list[int]) -> list[bytes]:
-    result = []
-    for size in sizes:
-        result.append(data[:size])
-        data = data[size:]
     return result
 
 
@@ -56,6 +52,11 @@ def log(*args) -> NoneType:
 
 
 def migrate(ip: str, port: int) -> NoneType:
+    """
+    Migrate to a new proxy server
+
+    Uses HandlerService gRPC API native to V2Ray
+    """
     log(f"proxy migrating to: new address {ip}, port {port}")
 
     remove_req = command_pb2.RemoveOutboundRequest(tag="spotproxy-outbound")
