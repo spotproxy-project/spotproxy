@@ -1,0 +1,84 @@
+services:
+  nat:
+    build:
+      context: .
+      dockerfile: NATDockerfile
+    container_name: nat-server
+    networks:
+      vpn_network:
+        ipv4_address: 54.90.59.253
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    cap_add:
+      - NET_ADMIN
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+    volumes:
+      - ./logs/nat:/app/logs
+  peer:
+    build:
+      context: .
+      dockerfile: Peer1Dockerfile
+    container_name: peer-client
+    depends_on:
+      - proxy
+    networks:
+      vpn_network:
+        ipv4_address: 54.90.0.2
+    environment:
+      - PYTHONUNBUFFERED=1
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+      - NET_RAW
+    privileged: true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+    volumes:
+      - ./logs/client:/app/logs
+  proxy:
+    build:
+      context: .
+      dockerfile: Server3Dockerfile
+    container_name: proxy-server
+    depends_on:
+      - nat
+    networks:
+      vpn_network:
+        ipv4_address: 54.90.191.175
+    volumes:
+      - ./key_store/server:/etc/wireguard
+      - ./logs/proxy:/app/logs
+    environment:
+      - GO111MODULE=on
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    privileged: true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+
+networks:
+  vpn_network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: "54.90.0.0/16"
+          gateway: "54.90.0.1"
