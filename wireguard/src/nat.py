@@ -1,7 +1,8 @@
 import socket
 import requests
 import os
-
+import asyncio
+from nat_server import NATServer
 from nat_threads import *
 
 
@@ -30,10 +31,23 @@ def nat_server(host, port):
 
     while True:
         client_socket, client_address = nat_socket.accept()
-        print(f"Accepted connection from {client_address}")
+        # print(f"Accepted connection from {client_address}")
 
         thr = NATThread(client_socket, client_address)
         thr.start()
+
+
+def test_https_connection():
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(10)
+        sock.connect(("google.com", 443))
+        logging.info("Successfully connected to google.com:443")
+        print("Successfully connected to google.com:443")
+        sock.close()
+    except Exception as e:
+        logging.error(f"Failed to connect to google.com:443: {e}")
+        print(f"Failed to connect to google.com:443: {e}")
 
 
 def nat_server_with_bulk_downloads(host, port, beeg_file_path):
@@ -66,29 +80,40 @@ def nat_server_with_kv_store(host, port):
         thr.start()
 
 
+async def main():
+    nat = NATServer()
+    await nat.start_server(host, port)
+
 if __name__ == "__main__":
     host = "0.0.0.0"
     port = 8000
-    beeg_file_path = "random.img"
-    print(os.path.exists(beeg_file_path))
-    pub_ip = get_public_ip()
+#    beeg_file_path = "random.img"
+#    print(os.path.exists(beeg_file_path))
+#    pub_ip = get_public_ip()
+    pub_ip = socket.gethostbyname(socket.gethostname())
     print(f"Nat server is listening on {pub_ip}:{port}")
 
-    choice = int(
-        input("input 0 for echo, 1 for NAT server, 2 for beeg file, 3 for kv: ").strip()
-    )
-
-    if choice == 0:
-        print("echo server...", end=" ")
-        echo_server(host, port)
-    elif choice == 1:
-        print("nat server...", end=" ")
-        nat_server(host, port)
-    elif choice == 2:
-        print("beeg server...", end=" ")
-        nat_server_with_bulk_downloads(host, port, beeg_file_path)
-    elif choice == 3:
-        print("kv server...", end=" ")
-        nat_server_with_kv_store(host, port)
-    else:
-        print("incorrect choice!")
+    test_https_connection()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nShutting down NAT server...")
+#    nat_server(host, port)
+#    choice = int(
+#        input("input 0 for echo, 1 for NAT server, 2 for beeg file, 3 for kv: ").strip()
+#    )
+#
+#    if choice == 0:
+#        print("echo server...", end=" ")
+#        echo_server(host, port)
+#    elif choice == 1:
+#        print("nat server...", end=" ")
+#        nat_server(host, port)
+#    elif choice == 2:
+#        print("beeg server...", end=" ")
+#        nat_server_with_bulk_downloads(host, port, beeg_file_path)
+#    elif choice == 3:
+#        print("kv server...", end=" ")
+#        nat_server_with_kv_store(host, port)
+#    else:
+#        print("incorrect choice!")

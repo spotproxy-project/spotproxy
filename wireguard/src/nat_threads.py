@@ -14,11 +14,12 @@ import logging
 
 
 logging.basicConfig(
+    filename='/app/logs/app.log',
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
-    stream=sys.stdout
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
+
 
 def get_public_ip():
     try:
@@ -28,7 +29,8 @@ def get_public_ip():
             public_ip = response.json()["origin"]
             return public_ip
         else:
-            print(f"Failed to retrieve public IP. Status code: {response.status_code}")
+            print(
+                f"Failed to retrieve public IP. Status code: {response.status_code}")
 
     except requests.RequestException as e:
         print(f"Request error: {e}")
@@ -52,13 +54,23 @@ class EchoThread(threading.Thread):
         self.client_socket.close()
 
 
+class Connection:
+    def __init__(self, src_addr, dst_addr):
+        self.src_addr = src_addr  # (ip, port)
+        self.dst_addr = dst_addr  # (ip, port)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.settimeout(10)
+
+
 class NATThread(threading.Thread):
     def __init__(self, client_socket: socket.socket, client_address: str):
         threading.Thread.__init__(self)
         self.client_socket = client_socket
         self.client_address = client_address
+        self.nat_ip = get_public_ip()
         self.running = True
-        self.udp_sockets = {} # (dst_ip, dst_port) -> socket
+        self.udp_sockets = {}
+        self.connections = {}
 
     def get_udp_socket(self, dst_ip: str, dst_port: int) -> socket.socket:
         """Create or get existing UDP socket for destination"""
@@ -67,7 +79,6 @@ class NATThread(threading.Thread):
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.udp_sockets[key] = sock
         return self.udp_sockets[key]
-
 
     def receive_pkt(self):
         try:
@@ -84,7 +95,8 @@ class NATThread(threading.Thread):
                 if not part:
                     return None
                 pkt_data.extend(part)
-                
+
+            logging.debug(f"PKT DATA: \n {pkt_data}")
             return pkt_data
         except Exception as e:
             logging.error(f"Error receiving packet: {e}")
@@ -102,41 +114,124 @@ class NATThread(threading.Thread):
             self.client_socket.sendall(buffer)
             logging.info(f"Sent response: {data_len} bytes")
         except Exception as e:
-            logging.error(f"Error sending response: {e}") 
-
+            logging.error(f"Error sending response: {e}")
 
     def handle_tcp_pkt(self, pkt: IP) -> Optional[bytes]:
         """Handle TCP packets"""
         try:
-            tcp_layer = pkt[TCP]
-            dst_ip = pkt[IP].dst
-            dst_port = tcp_layer.dport
-            payload = bytes(tcp_layer.payload)
+            # Store original client IP for response handling
+            original_src = pkt[IP].src
 
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(10)  # 10 second timeout
-            sock.connect((dst_ip, dst_port))
+            # Modify source IP to be NAT server's IP
+            pkt[IP].src = self.nat_ip  # Your NAT server's public IP
 
-            if payload:
-                sock.send(payload)
+            # Forward modified packet to destination
+            raw_socket = socket.socket(
+                socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
+            raw_socket.sendto(bytes(pkt), (pkt[IP].dst, 0))
 
-            response = sock.recv(65535)
-            sock.close()
+            # Wait for response
+            response = raw_socket.recv(65535)
 
-            response_packet = IP(
-                src=pkt[IP].dst,
-                dst=pkt[IP].src,
-                proto=pkt[IP].proto
-            )/TCP(
-                sport=tcp_layer.dport,
-                dport=tcp_layer.sport,
-                flags='A'  # ACK flag
-            )/Raw(load=response)
+            # Modify response destination to be original client IP
+            response_pkt = IP(response)
+            response_pkt[IP].dst = original_src
 
-            return bytes(response_packet)
+            return bytes(response_pkt)
 
         except Exception as e:
-            logging.error(f"Error handling TCP packet: {e}")
+            logging.error(f"Error forwarding TCP packet: {e}")
+            return None
+
+        conn_key = None
+        try:
+            tcp_layer = pkt[TCP]
+            src_addr = (pkt[IP].src, tcp_layer.sport)
+            dst_addr = (pkt[IP].dst, tcp_layer.dport)
+            conn_key = (src_addr, dst_addr)
+
+            logging.info(f"Processing TCP packet: {src_addr} -> {dst_addr}")
+            logging.debug(
+                f"TCP Flags: {tcp_layer.flags}, Seq: {tcp_layer.seq}, Ack: {tcp_layer.ack}")
+
+            if tcp_layer.flags & 0x02:  # SYN flag
+                if conn_key not in self.connections:
+                    logging.info(
+                        f"GOT SYN flag, Creating new connection to {dst_addr}")
+                    conn = Connection(src_addr, dst_addr)
+                    try:
+                        conn.sock.connect(dst_addr)
+                        self.connections[conn_key] = conn
+
+                        response_packet = IP(
+                            src=pkt[IP].dst,
+                            dst=pkt[IP].src
+                        )/TCP(
+                            sport=tcp_layer.dport,
+                            dport=tcp_layer.sport,
+                            flags='SA',  # SYN-ACK
+                            seq=0,
+                            ack=tcp_layer.seq + 1
+                        )
+                        return bytes(response_packet)
+                    except socket.error as e:
+                        logging.error(f"Failed to connect: {e}")
+                        return None
+
+            if conn_key not in self.connections:
+                logging.info(f"No existing connection found for {conn_key}")
+                logging.info(f"Creating new connection to {dst_addr}")
+                conn = Connection(src_addr, dst_addr)
+                try:
+                    logging.info(f"Attempting to connect to {dst_addr}")
+                    conn.sock.connect(dst_addr)
+                    logging.info(f"Successfully connected to {dst_addr}")
+                    self.connections[conn_key] = conn
+                except socket.error as e:
+                    logging.error(f"Failed to connect to {dst_addr}: {e}")
+                    if isinstance(e, socket.timeout):
+                        logging.error("Connection attempt timed out")
+                    return None
+            else:
+                logging.debug(f"Using existing connection for {conn_key}")
+
+            conn = self.connections[conn_key]
+            payload = bytes(tcp_layer.payload)
+            if payload:
+                logging.info(
+                    f"Sending payload of {len(payload)} bytes to {dst_addr}")
+                try:
+                    conn.sock.sendall(payload)
+                    logging.info("Payload sent successfully")
+
+                    logging.info("Waiting for response...")
+                    response = conn.sock.recv(65535)
+                    if response:
+                        logging.info(
+                            f"Received response of {len(response)} bytes")
+                        return response
+                    else:
+                        logging.warning("Received empty response")
+                except socket.timeout:
+                    logging.error("Socket operation timed out")
+                except socket.error as e:
+                    logging.error(f"Socket error during data transfer: {e}")
+            else:
+                logging.debug("No payload to send")
+
+            return None
+
+        except Exception as e:
+            logging.error(f"Error handling TCP packet: {e}", exc_info=True)
+            # Clean up connection on error
+            if conn_key in self.connections:
+                try:
+                    self.connections[conn_key].sock.close()
+                    del self.connections[conn_key]
+                    logging.info(f"Cleaned up connection for {conn_key}")
+                except Exception as cleanup_error:
+                    logging.error(
+                        f"Error during connection cleanup: {cleanup_error}")
             return None
 
     def handle_udp_pkt(self, packet: IP) -> Optional[bytes]:
@@ -184,24 +279,31 @@ class NATThread(threading.Thread):
     def handle_icmp_pkt(self, packet: IP) -> Optional[bytes]:
         """Handle ICMP packets (like ping)"""
         try:
+            icmp_layer = packet[ICMP]
+
+            # If it's an error message (like Destination Unreachable)
+            # 3=Destination Unreachable, 11=Time Exceeded
+            if icmp_layer.type in [3, 11]:
+                # Simply return the packet as is, just swap src/dst
+                response_packet = IP(
+                    src=packet[IP].dst,
+                    dst=packet[IP].src
+                )/ICMP(bytes(packet[ICMP]))
+                return bytes(response_packet)
+
+            # For regular ICMP packets (like ping)
             dst_ip = packet[IP].dst
-            
-            # Create raw socket for ICMP
-            sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
+            sock = socket.socket(
+                socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
             sock.settimeout(5)
-
-            # Send the ICMP packet
             sock.sendto(bytes(packet[ICMP]), (dst_ip, 0))
-
-            # Receive response
             response, _ = sock.recvfrom(65535)
             sock.close()
 
-            # Create response packet
             response_packet = IP(
                 src=packet[IP].dst,
                 dst=packet[IP].src
-            )/ICMP(response[20:])  # Skip IP header
+            )/ICMP(response[20:])
 
             return bytes(response_packet)
 
@@ -216,24 +318,32 @@ class NATThread(threading.Thread):
             logging.info(f"Processing packet: {original_packet.summary()}")
 
             if TCP in original_packet:
+                tcp = original_packet[TCP]
+                logging.info(
+                    f"TCP Packet - SRC Port: {tcp.sport}, DST Port: {tcp.dport}, Flags: {tcp.flags}")
                 return self.handle_tcp_pkt(original_packet)
             elif UDP in original_packet:
+                udp = original_packet[UDP]
+                logging.info(
+                    f"UDP Packet - SRC Port: {udp.sport}, DST Port: {udp.dport}")
                 return self.handle_udp_pkt(original_packet)
             elif ICMP in original_packet:
+                icmp = original_packet[ICMP]
+                logging.info(
+                    f"ICMP Packet - Type: {icmp.type}, Code: {icmp.code}")
                 return self.handle_icmp_pkt(original_packet)
             else:
-                logging.warning(f"Unsupported protocol: {original_packet.proto}")
+                logging.warning(
+                    f"Unsupported protocol: {original_packet.proto}")
                 return None
 
-           
         except Exception as e:
             logging.error(f"Error processing packet: {e}")
             return None
 
-
     def run(self):
         logging.info(f"Started handling connection from {self.client_address}")
-        
+
         while self.running:
             try:
                 packet_data = self.receive_pkt()
@@ -242,11 +352,11 @@ class NATThread(threading.Thread):
                     break
 
                 logging.info(f"Received packet: {len(packet_data)} bytes")
-                
+
                 response_data = self.process_packet(packet_data)
                 if response_data:
                     self.send_response(response_data)
-                
+
             except Exception as e:
                 logging.error(f"Error in processing: {e}")
                 break

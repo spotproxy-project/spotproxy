@@ -51,7 +51,8 @@ class MigrationHandler(threading.Thread):
                     splitted_line = line.split("=")
                     splitted_line[1] = new_endpoint
                     lines_in_peer[i] = "= ".join(splitted_line)
-            new_config = "Peer".join([splitted_config[0], "\n".join(lines_in_peer)])
+            new_config = "Peer".join(
+                [splitted_config[0], "\n".join(lines_in_peer)])
             with open(WIREGUARD_CONFIG_LOCATION, "w") as f:
                 f.write(new_config)
 
@@ -93,31 +94,75 @@ def tcp_client(host, port):
         client_socket.close()
         log("Connection closed.")
 
+
+def simulate_curl(destination_url, test_duration=10):
+    """
+    Simulate traffic similar to 'curl' by executing HTTP GET requests.
+
+    :param destination_url: The destination URL (e.g., "http://google.com").
+    :param test_duration: Duration to simulate the traffic in seconds.
+    """
+
+    try:
+        # Perform a curl-like operation using Python's subprocess
+        hostname = destination_url.split("//")[-1].split("/")[0]
+
+# Perform DNS resolution (UDP traffic)
+#            print(f"Resolving DNS for {hostname}...")
+#            ip_address = socket.gethostbyname(hostname)
+#            print(f"Resolved {hostname} to {ip_address}")
+
+        # Make an HTTP GET request (TCP traffic)
+        start_time = time()
+        print(f"Sending HTTP request to {destination_url}...")
+        response = requests.get(destination_url, timeout=20)
+
+        # Log the status
+        print(
+            f"Received response: {response.status_code}, Length: {len(response.content)}")
+
+        # Pause for a short duration before the next request
+        sleep(2)
+
+    except socket.gaierror as e:
+        print(f"DNS resolution failed: {e}")
+    except requests.RequestException as e:
+        print(f"HTTP request failed: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+    finally:
+        print(
+            f"Simulation completed. Duration: {time() - start_time:.2f} seconds")
+
+
 def get_and_set_wireguard_ip():
     try:
-        response = requests.get(f'http://{CONTROLLER_IP_ADDRESS}:8000/assignments/getnew')
+        response = requests.get(
+            f'http://{CONTROLLER_IP_ADDRESS}:8000/assignments/getnew')
         if response.status_code == 200:
             wireguard_ip = response.json()['wireguard_ip']
-            
+
             # Read current config
             with open(WIREGUARD_CONFIG_LOCATION, 'r') as f:
                 config = f.read()
-            
+
             # Replace or add Address line
             if 'Address' in config:
-                config = re.sub(r'Address = .*', f'Address = {wireguard_ip}/32', config)
+                config = re.sub(r'Address = .*',
+                                f'Address = {wireguard_ip}/32', config)
             else:
                 # Add after [Interface] section
-                config = config.replace('[Interface]', f'[Interface]\nAddress = {wireguard_ip}/32')
-            
+                config = config.replace(
+                    '[Interface]', f'[Interface]\nAddress = {wireguard_ip}/32')
+
             # Write updated config
             with open(WIREGUARD_CONFIG_LOCATION, 'w') as f:
                 f.write(config)
-            
+
             # Restart WireGuard interface
             subprocess.run("wg-quick down wg0", shell=True)
             subprocess.run("wg-quick up wg0", shell=True)
-            
+
             log(f"Successfully set WireGuard IP to {wireguard_ip}")
             return wireguard_ip
         else:
@@ -126,6 +171,7 @@ def get_and_set_wireguard_ip():
     except Exception as e:
         log(f"Error getting/setting WireGuard IP: {e}")
         return None
+
 
 def efficacy_test_bulk_download(host, port, migration, test_duration=300):
     global client_socket
@@ -154,7 +200,8 @@ def efficacy_test_bulk_download(host, port, migration, test_duration=300):
                 while len(data) < length:
                     to_read = length - len(data)
                     client_socket.settimeout(0.2)
-                    new_data = client_socket.recv(4096 if to_read > 4096 else to_read)
+                    new_data = client_socket.recv(
+                        4096 if to_read > 4096 else to_read)
                     data += new_data
                     amount_of_data_gathered += len(new_data)
 
@@ -182,7 +229,8 @@ def efficacy_test_wikipedia(host, port, migration, test_duration=999999):
     client_socket.connect((host, port))
     log(f"Connected to {host}:{port}")
     start_time = time()
-    measure_thread = TrafficGetterThread(start_time=start_time, duration=test_duration)
+    measure_thread = TrafficGetterThread(
+        start_time=start_time, duration=test_duration)
     measure_thread.start()
     measure_thread_2 = TrafficMeasurementPythonThread(
         start_time=start_time, duration=test_duration
@@ -204,7 +252,8 @@ def efficacy_test_wikipedia(host, port, migration, test_duration=999999):
                 data = b""
                 while len(data) < length:
                     to_read = length - len(data)
-                    new_data = client_socket.recv(4096 if to_read > 4096 else to_read)
+                    new_data = client_socket.recv(
+                        4096 if to_read > 4096 else to_read)
                     data += new_data
 
                     if time() - start_time > i * 20:
@@ -231,7 +280,8 @@ def efficacy_test_kv_store(host, port, migration, test_duration=300):
     client_socket.connect((host, port))
     log(f"Connected to {host}:{port}")
     start_time = time()
-    measure_thread = TrafficGetterThread(start_time=start_time, duration=test_duration)
+    measure_thread = TrafficGetterThread(
+        start_time=start_time, duration=test_duration)
     measure_thread.start()
     measure_thread_2 = TrafficMeasurementPythonThread(
         start_time=start_time, duration=test_duration
@@ -251,7 +301,8 @@ def efficacy_test_kv_store(host, port, migration, test_duration=300):
                 data = b""
                 while len(data) < length:
                     to_read = length - len(data)
-                    new_data = client_socket.recv(4096 if to_read > 4096 else to_read)
+                    new_data = client_socket.recv(
+                        4096 if to_read > 4096 else to_read)
                     data += new_data
                     if time() - start_time > i * 20:
                         log(f"here at {20*i}s, got {len(data)}data", pr=True)
@@ -291,7 +342,8 @@ def mass_test_simple_client(host, port, test_duration=1500):
                 data = b""
                 while len(data) < length:
                     to_read = length - len(data)
-                    new_data = client_socket.recv(4096 if to_read > 4096 else to_read)
+                    new_data = client_socket.recv(
+                        4096 if to_read > 4096 else to_read)
                     data += new_data
 
                     if time() - start_time > i * 20:
@@ -330,17 +382,11 @@ if __name__ == "__main__":
         migration_endpoint = ("10.27.0.2", 8089)
         handler = MigrationHandler(listen_endpoint=migration_endpoint)
         handler.start()
-        client_socket.connect((host, port))
-        log(f"Connected to {host}:{port}")
-        while True:
-            url = input("Enter a URL to browse (or 'exit' to quit): ")
-            if url.lower() == 'exit':
-                break
-            result = browse_url(url)
-            if result:
-                print(f"Received content from {url}:\n{result[:500]}...")
-        client_socket.close()
-        #efficacy_test_wikipedia(host, port, migration=True)
+        host = "10.27.0.20"
+        port = 8088
+        simulate_curl("https://google.com")
+        # efficacy_test_wikipedia(host, port, migration=True)
+        # efficacy_test_wikipedia(host, port, migration=True)
         # NOTE: Code for all the previous tests
         # choice = input(
         #     "the format is False: no mig - True: with mig. \n0 and 1 for wiki, 2 and 3 for bulk, 4 and 5 for kv.\nstart? "
