@@ -115,7 +115,7 @@ def simulate_curl(destination_url, test_duration=10):
         # Make an HTTP GET request (TCP traffic)
         start_time = time()
         print(f"Sending HTTP request to {destination_url}...")
-        response = requests.get(destination_url, timeout=20)
+        response = requests.get(destination_url, timeout=150)
 
         # Log the status
         print(
@@ -385,6 +385,7 @@ if __name__ == "__main__":
         host = "10.27.0.20"
         port = 8088
         simulate_curl("https://google.com")
+#        efficacy_test_wikipedia(host, port, migration=True)
         # efficacy_test_wikipedia(host, port, migration=True)
         # efficacy_test_wikipedia(host, port, migration=True)
         # NOTE: Code for all the previous tests

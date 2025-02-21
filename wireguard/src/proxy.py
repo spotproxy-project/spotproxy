@@ -1,8 +1,12 @@
-from server_threads import *
-from settings import *
+from server_threads import (
+    MigrationHandler,
+    ForwardingServerThread,
+    PollingHandler,
+)
+from settings import MIGRATION_PORT, WIREGUARD_CONFIG_LOCATION, WIREGUARD_PORT
 import requests
-from logger import log
 from time import time
+import socket
 
 
 def get_public_ip():
@@ -15,35 +19,16 @@ def get_public_ip():
             # log(f"Failed to retrieve public IP. Status code: {response.status_code}")
             pass
 
-    except requests.RequestException as e:
+    except requests.RequestException:
         # log(f"Request error: {e}")
         pass
 
     return None
 
 
-def check_connectivity():
-    while True:
-        try:
-            nat_result = subprocess.run(["ping", "-c", "1", "172.31.41.62"], capture_output=True, text=True)
-            if nat_result.returncode == 0:
-                logging.info("Connectivity to NAT VM: OK")
-            else:
-                logging.warning(f"Cannot reach NAT VM: {nat_result.stderr}")
-
-            internet_result = subprocess.run(["ping", "-c", "1", "8.8.8.8"], capture_output=True, text=True)
-            if internet_result.returncode == 0:
-                logging.info("Internet connectivity: OK")
-            else:
-                logging.warning(f"Cannot reach internet: {internet_result.stderr}")
-        except Exception as e:
-            logging.error(f"Error checking connectivity: {e}")
-        sleep(60)
-
 class Proxy:
     def __init__(
         self,
-        wireguard_interface,
         wireguard_endpoint,
         nat_endpoint,
         broker_endpoint,
@@ -53,14 +38,14 @@ class Proxy:
         """
         endpoints are tuples of: (address, port)
         """
-        self.my_number = int(socket.gethostbyname(socket.gethostname()).split(".")[-1])
-        print(f"hostname(my_number) is: {self.my_number}")
+        self.my_number = int(
+            socket.gethostbyname(socket.gethostname()).split(".")[-1]
+        )
         self.wireguard_endpoint = wireguard_endpoint
         self.nat_endpoint = nat_endpoint
         self.broker_endpoint = broker_endpoint
         self.migration_endpoint = migration_endpoint
         self.polling_endpoint = polling_endpoint
-        self.wireguard_interface = wireguard_interface
 
     def migrate(self, new_proxy_ip):
         start_time = time()
@@ -87,7 +72,7 @@ class Proxy:
             s.connect((address[0], MIGRATION_PORT))
             s.sendall(f"{new_proxy_address}:{WIREGUARD_PORT}".encode())
             s.close()
-        print(f"sent to all successfully! GGs.")
+        print("sent to all successfully! GGs.")
 
         nat_sockets = []
         migration_time = time() - start_time
@@ -104,10 +89,8 @@ class Proxy:
         ip = get_public_ip()
         print(f"my endpoint is: {ip}:51820")
 
-        connectivity_thread = threading.Thread(target=check_connectivity, daemon=True)
-        connectivity_thread.start()
         forwarding_server = ForwardingServerThread(
-            ip,self.wireguard_interface, self.nat_endpoint
+            self.wireguard_endpoint, self.nat_endpoint
         )
         migration_handler = MigrationHandler(self.migration_endpoint)
         polling_handler = PollingHandler(self.polling_endpoint)
@@ -121,10 +104,10 @@ class Proxy:
 
         while True:
             broker_socket, broker_address = dock_socket.accept()
-            
+
             data = broker_socket.recv(1024)
 
-            print(f'INFO: got message from {broker_address}: {data.decode()}')
+            print(f"INFO: got message from {broker_address}: {data.decode()}")
 
             command = data.decode().strip().lower().split()
             broker_socket.close()
@@ -135,4 +118,4 @@ class Proxy:
                 else:
                     self.migrate(f"172.17.0.{self.my_number + 1}")
             else:
-                print('ERROR: Unknown command. Ignoring...')
+                print("ERROR: Unknown command. Ignoring...")

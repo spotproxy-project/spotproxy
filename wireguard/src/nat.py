@@ -1,9 +1,8 @@
 import socket
-import requests
 import os
-import asyncio
-from nat_server import NATServer
-from nat_threads import *
+import requests
+
+from nat_threads import EchoThread, NATThread, KVThread, BEEGThread
 
 
 def echo_server(host, port):
@@ -11,7 +10,7 @@ def echo_server(host, port):
     nat_socket.bind((host, port))
     nat_socket.listen(5)
 
-    print(f"yes")
+    print("yes")
 
     while True:
         client_socket, client_address = nat_socket.accept()
@@ -23,31 +22,17 @@ def echo_server(host, port):
 
 def nat_server(host, port):
     nat_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    nat_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     nat_socket.bind((host, port))
     nat_socket.listen(5)
 
-    print(f"yes")
+    print("yes")
 
     while True:
         client_socket, client_address = nat_socket.accept()
-        # print(f"Accepted connection from {client_address}")
+        print(f"Accepted connection from {client_address}")
 
         thr = NATThread(client_socket, client_address)
         thr.start()
-
-
-def test_https_connection():
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(10)
-        sock.connect(("google.com", 443))
-        logging.info("Successfully connected to google.com:443")
-        print("Successfully connected to google.com:443")
-        sock.close()
-    except Exception as e:
-        logging.error(f"Failed to connect to google.com:443: {e}")
-        print(f"Failed to connect to google.com:443: {e}")
 
 
 def nat_server_with_bulk_downloads(host, port, beeg_file_path):
@@ -80,29 +65,38 @@ def nat_server_with_kv_store(host, port):
         thr.start()
 
 
-async def main():
-    nat = NATServer()
-    await nat.start_server(host, port)
+def get_public_ip():
+    try:
+        response = requests.get("https://httpbin.org/ip")
+
+        if response.status_code == 200:
+            public_ip = response.json()["origin"]
+            return public_ip
+        else:
+            print(
+                f"Failed to retrieve public IP. Status code: {response.status_code}"
+            )
+
+    except requests.RequestException as e:
+        print(f"Request error: {e}")
+
+    return None
+
 
 if __name__ == "__main__":
     host = "0.0.0.0"
     port = 8000
-#    beeg_file_path = "random.img"
-#    print(os.path.exists(beeg_file_path))
-#    pub_ip = get_public_ip()
-    pub_ip = socket.gethostbyname(socket.gethostname())
+    beeg_file_path = "random.img"
+    print(os.path.exists(beeg_file_path))
+    pub_ip = get_public_ip()
     print(f"Nat server is listening on {pub_ip}:{port}")
 
-    test_https_connection()
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\nShutting down NAT server...")
-#    nat_server(host, port)
 #    choice = int(
-#        input("input 0 for echo, 1 for NAT server, 2 for beeg file, 3 for kv: ").strip()
+#        input(
+#            "input 0 for echo, 1 for NAT server, 2 for beeg file, 3 for kv: "
+#        ).strip()
 #    )
-#
+    nat_server(host, port)
 #    if choice == 0:
 #        print("echo server...", end=" ")
 #        echo_server(host, port)

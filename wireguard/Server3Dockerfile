@@ -1,19 +1,17 @@
-FROM golang:1.23-alpine
+FROM golang:1.23
 
-RUN apk add --no-cache wireguard-tools nano iputils iproute2 make bash gcc musl-dev libpcap-dev linux-headers
+RUN apt-get update && apt-get install -y \
+    wireguard-tools nano iputils-ping iproute2 make bash gcc \
+    musl-dev libpcap-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
-COPY src/go ./
-
+COPY /src/go/go.sum /src/go/go.mod ./
 RUN go mod download
+COPY ./src/go/*.go ./startup-scripts/proxy-boot.sh ./
 
 COPY key_store/server/wg0.conf /etc/wireguard/wg0.conf
 
-RUN go build -o main .
-
-COPY startup-scripts/proxy-boot.sh /startup-scripts/proxy-boot.sh
-
-RUN chmod +x /startup-scripts/proxy-boot.sh
-
-CMD ["/bin/bash", "/startup-scripts/proxy-boot.sh"]
+RUN CGO_ENABLED=1 GOOS=linux go build -o /app/main
+RUN chmod +x ./proxy-boot.sh 
+CMD ["/bin/bash", "proxy-boot.sh"]

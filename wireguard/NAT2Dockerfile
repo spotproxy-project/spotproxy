@@ -1,0 +1,17 @@
+FROM golang:1.23
+
+RUN apt-get update && apt-get install -y \
+    wireguard-tools nano iputils-ping iproute2 make bash gcc \
+    musl-dev libpcap-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY /src/nat/go.mod /src/nat/go.sum ./
+COPY /src/nat/ ./
+RUN go mod download
+
+RUN CGO_ENABLED=1 GOOS=linux go build -o ./cmd/main ./cmd/main_linux.go
+#RUN ls -lah /app/
+RUN chmod +x ./cmd/main
+# Specify entry point
+CMD ["./cmd/main"]

@@ -1,0 +1,21 @@
+FROM ubuntu:latest
+
+# Set non-interactive mode to avoid prompts during install
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install necessary packages
+RUN apt update && apt install -y \
+    iptables \
+    tcpdump \
+    iproute2 \
+    net-tools \
+    iputils-ping \
+    dnsutils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy setup script
+COPY /startup-scripts/nat-setup.sh /nat-setup.sh
+RUN chmod +x /nat-setup.sh
+
+# Run setup script when the container starts
+ENTRYPOINT ["/nat-setup.sh"]

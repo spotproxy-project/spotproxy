@@ -1,0 +1,14 @@
+FROM ubuntu:latest
+
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install necessary networking tools
+RUN apt update && apt install -y wireguard-tools iproute2 iptables net-tools tcpdump dnsutils && rm -rf /var/lib/apt/lists/*
+
+# Copy Proxy setup script
+COPY /startup-scripts/proxy-setup.sh /proxy-setup.sh
+RUN chmod +x /proxy-setup.sh
+
+# Run middle server setup
+ENTRYPOINT ["/proxy-setup.sh"]

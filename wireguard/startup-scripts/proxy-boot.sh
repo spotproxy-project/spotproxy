@@ -11,11 +11,9 @@
 #cp key_store/server/wg0.conf /etc/wireguard/
 
 #pip install -r requirements.txt
-
+ls /etc/wireguard/
+cd /app
 wg-quick down wg0
 wg-quick up wg0
 
-#cd src
-
-#python3 server.py
 ./main

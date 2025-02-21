@@ -1,8 +1,23 @@
 FROM python:3.11-slim-bookworm
-RUN apt update && apt install wireguard-tools nano iputils-ping iproute2 make -y
+
+# Install required dependencies including gcc and python3-dev
+RUN apt update && apt install -y \
+    gcc \
+    python3-dev \
+    wireguard-tools \
+    nano \
+    iputils-ping \
+    iproute2 \
+    make
+
+# Copy the current directory contents into the container
 COPY . /
+
+# Run the 'make ready' command
 RUN make ready name=server2
+
+# Install Python dependencies
 RUN pip install -r /requirements.txt
 
-
-CMD ["/bin/bash", , "/startup-scripts/proxy-boot.sh"]
+# Set the default command
+CMD ["/bin/bash", "/startup-scripts/proxy-booy-python.sh"]

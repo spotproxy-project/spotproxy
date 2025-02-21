@@ -2,17 +2,21 @@ services:
   nat:
     build:
       context: .
-      dockerfile: NATDockerfile
+      dockerfile: NAT3Dockerfile
     container_name: nat-server
     networks:
       vpn_network:
         ipv4_address: 54.90.59.253
     ports:
       - "8000:8000"
-    environment:
-      - PYTHONUNBUFFERED=1
+    #    environment:
+      # - PYTHONUNBUFFERED=1
     cap_add:
       - NET_ADMIN
+      - NET_RAW
+      - SYS_ADMIN
+    sysctls:
+      - net.ipv4.ip_forward=1
     logging:
       driver: "json-file"
       options:
@@ -21,6 +25,13 @@ services:
         tag: "{{.Name}}"
     volumes:
       - ./logs/nat:/app/logs
+    deploy:
+      resources:
+        limits:
+          cpus: "3.0"
+          memory: "512M"
+        reservations:
+          cpus: "2.0"
   peer:
     build:
       context: .
@@ -46,10 +57,17 @@ services:
         tag: "{{.Name}}"
     volumes:
       - ./logs/client:/app/logs
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "512M"
+        reservations:
+          cpus: "2.0"
   proxy:
     build:
       context: .
-      dockerfile: Server3Dockerfile
+      dockerfile: Server4Dockerfile
     container_name: proxy-server
     depends_on:
       - nat
@@ -63,7 +81,10 @@ services:
       - GO111MODULE=on
     cap_add:
       - NET_ADMIN
-      - SYS_MODULE
+      - NET_RAW
+      - SYS_ADMIN
+    sysctls:
+      - net.ipv4.ip_forward=1
     devices:
       - /dev/net/tun:/dev/net/tun
     privileged: true
@@ -73,6 +94,13 @@ services:
         max-size: "10m"
         max-file: "3"
         tag: "{{.Name}}"
+    deploy:
+      resources:
+        limits:
+          cpus: "3.0" 
+          memory: "512M"
+        reservations:
+          cpus: "1.0"
 
 networks:
   vpn_network:

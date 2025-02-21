@@ -5,18 +5,6 @@ from settings import WIREGUARD_CONFIG_LOCATION
 import psutil
 from time import sleep
 import json
-import logging
-import sys
-from scapy.all import packet, sniff, send
-from scapy.layers.inet import IP, UDP, TCP
-
-logging.basicConfig(
-    filename='/app/logs/app.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
-    stream=sys.stdout
-)
 
 client_addresses = []
 client_sockets = []
@@ -26,104 +14,59 @@ nat_sockets = []
 class ForwardThread(threading.Thread):
     def __init__(
         self,
-        pkt: packet.Packet,
-        description: str
+        source_socket: socket.socket,
+        destination_socket: socket.socket,
+        description: str,
     ):
         threading.Thread.__init__(self)
-        self.pkt = pkt
+        self.source_socket = source_socket
+        self.destination_socket = destination_socket
         self.description = description
 
     def run(self):
-        try:
-            del self.pkt[IP].chksum
-            if self.pkt.haslayer(TCP):
-                del self.pkt[TCP].chksum
-            elif self.pkt.haslayer(UDP):
-                del self.pkt[UDP].chksum
-
-            logging.info(
-                f"Sending packet ({self.description}): {self.pkt.summary()}")
-            send(self.pkt, verbose=True)
-            logging.info(f"Packet sent successfully ({self.description})")
-        except Exception as e:
-            logging.error(f"Error forwarding packet: {e}")
+        with self.source_socket, self.destination_socket:
+            while data := self.source_socket.recv(1024):
+                self.destination_socket.sendall(data)
 
 
 class ForwardingServerThread(threading.Thread):
-    def __init__(self, current_ip, listen_interface: str, forward_endpoint: tuple):
+    def __init__(self, listen_endpoint: tuple, forward_endpoint: tuple):
         threading.Thread.__init__(self)
 
-        self.listen_endpoint = listen_interface
-        self.current_ip = current_ip
-        self.nat_ip = forward_endpoint[0]
-
-    def packet_handler(self, pkt: packet.Packet):
-        """
-        This function handles any packet that is captured from the interface.
-        It will forward the packet to the NAT server.
-        """
-        logging.info(f"Received packet: {pkt.summary()}\n")
-        logging.debug(f"Full packet details:\n{pkt.show(dump=True)}")
-        if pkt.haslayer(IP):
-            src_ip = pkt[IP].src
-            dst_ip = pkt[IP].dst
-            logging.info(f"Processing IP packet: SRC: {src_ip}, DST: {dst_ip}")
-
-            if src_ip not in client_addresses:
-                client_addresses.append(src_ip)
-
-            if src_ip != self.nat_ip:
-                # if packet is from client, forward it to the NAT server
-                pkt[IP].src = self.current_ip
-                pkt[IP].dst = self.nat_ip
-                logging.info(
-                    f"Forwarding to NAT: {pkt[IP].src} -> {pkt[IP].dst} (original dst: {dst_ip})")
-                forward_thread = ForwardThread(pkt, "client -> server")
-                forward_thread.start()
-
-            else:
-                client_ip = client_addresses[0] if client_addresses else None
-                if client_ip:
-                    pkt[IP].dst = client_ip
-                    logging.info(
-                        f"Forwarding to client: {src_ip} -> {client_ip}")
-                    forward_thread = ForwardThread(pkt, "server -> client")
-                    forward_thread.start()
-                else:
-                    logging.warning("No client IP available for forwarding")
+        self.listen_endpoint = listen_endpoint
+        self.forward_endpoint = forward_endpoint
 
     def run(self):
-        logging.info(
-            f"Listening for packets on interface {self.listen_endpoint}")
+        global client_addresses, client_sockets, nat_sockets
         try:
-            sniff(iface=self.listen_endpoint, prn=self.packet_handler, store=0)
+            dock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            dock_socket.bind(
+                (self.listen_endpoint[0], self.listen_endpoint[1]))
+            dock_socket.listen(5)
+            while True:
+                client_socket, client_address = dock_socket.accept()
+                if client_address not in client_addresses:
+                    client_addresses.append(client_address)
+                    client_sockets.append(client_socket)
+
+                if len(client_addresses) % 10 == 0:
+                    print(len(client_addresses))
+                nat_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                nat_socket.connect(
+                    (self.forward_endpoint[0], self.forward_endpoint[1])
+                )
+                nat_sockets.append(nat_socket)
+                way1 = ForwardThread(
+                    client_socket, nat_socket, "client -> server"
+                )
+                way2 = ForwardThread(
+                    nat_socket, client_socket, "server -> client"
+                )
+                way1.start()
+                way2.start()
         except Exception as e:
-            logging.error(f"Error in packet sniffing: {e}")
-#        global client_addresses, client_sockets, nat_sockets
-#        try:
-#            dock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#            dock_socket.bind((self.listen_endpoint[0], self.listen_endpoint[1]))
-#            dock_socket.listen(5)
-#            while True:
-#                client_socket, client_address = dock_socket.accept()
-#                if client_address not in client_addresses:
-#                    client_addresses.append(client_address)
-#                    client_sockets.append(client_socket)
-#                    logging.info(f"New client connected: {client_address[0]}:{client_address[1]}")
-#
-#                if len(client_addresses) % 10 == 0:
-#                    print(len(client_addresses))
-#                    logging.info(f"Total clients connected: {len(client_addresses)}")
-#                nat_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#                nat_socket.connect((self.forward_endpoint[0], self.forward_endpoint[1]))
-#                nat_sockets.append(nat_socket)
-#                way1 = ForwardThread(client_socket, nat_socket, "client -> server")
-#                way2 = ForwardThread(nat_socket, client_socket, "server -> client")
-#                way1.start()
-#                way2.start()
-#        except Exception as e:
-#            print("ERROR: a fatal error has happened")
-#            print(str(e))
+            print("ERROR: a fatal error has happened")
+            print(str(e))
 
 
 class MigratingAgent(threading.Thread):
@@ -132,16 +75,12 @@ class MigratingAgent(threading.Thread):
         self.client_socket = client_socket
 
     def run(self):
-        data = " "
-        full_file_data = b""
         # log(f"==== recieving migration data")
-        while data:
-            data = self.client_socket.recv(1024)
-            if data:
-                full_file_data += data
-            else:
-                self.client_socket.shutdown(socket.SHUT_RD)
-                break
+        full_file_data = b""
+        while data := self.client_socket.recv(1024):
+            full_file_data += data
+        self.client_socket.shutdown(socket.SHUT_RD)
+
         migration_string = full_file_data.decode()
         peers = migration_string.split("Peer")
         if len(peers) == 1:
@@ -161,7 +100,8 @@ class MigratingAgent(threading.Thread):
                     allowed_ips = line[line.find("=") + 1:].strip()
 
             subprocess.run(
-                f'wg set wg0 peer "{public_key}" allowed-ips {allowed_ips}', shell=True
+                f'wg set wg0 peer "{public_key}" allowed-ips {allowed_ips}',
+                shell=True,
             )
             subprocess.run(
                 f"ip -4 route add {allowed_ips} dev wg0", shell=True)
@@ -203,8 +143,9 @@ def calculate_network_throughput(interval=0.01):
     net_io_before = psutil.net_io_counters()
     sleep(interval)
     net_io_after = psutil.net_io_counters()
-    sent_throughput = (net_io_after.bytes_sent -
-                       net_io_before.bytes_sent) / interval
+    sent_throughput = (
+        net_io_after.bytes_sent - net_io_before.bytes_sent
+    ) / interval
 
     return sent_throughput
 
@@ -236,11 +177,6 @@ class PollingHandler(threading.Thread):
                 message_to_send = json.dumps(report)
                 poller_socket.sendall(message_to_send.encode())
                 poller_socket.close()
-                logging.info(
-                    f"Polling report: CPU: {cpu_utilization}%, Throughput: {throughput}, Clients: {len(client_addresses)}")
-
-        except Exception as e:
-            logging.error(f"Error in PollingHandler: {str(e)}")
 
         finally:
             dock_socket.close()

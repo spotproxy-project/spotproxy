@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/binary"
+//	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,7 +26,7 @@ const (
 	ifn         = "wg0"
 	natIPv4     = "10.27.0.20" // Should set to NAT IP
 	natPort     = "8000"
-	snapLen     = 1024
+	snapLen     = 1500
 	promiscuous = false
 	timeout     = 10 * time.Second
 )
@@ -158,7 +158,7 @@ func NewProxy(logger *zap.Logger) (*Proxy, error) {
 }
 
 func (p *Proxy) connectToNAT() error {
-	natPoint := fmt.Sprintf("%s:%s", "nat", natPort)
+	natPoint := fmt.Sprintf("%s:%s", "54.90.59.253", natPort) // This Should Work with DNS, using /etc/hosts
 	maxRetries := 5
 	for i := 0; i < maxRetries; i++ {
 		conn, err := net.Dial("tcp", natPoint)
@@ -207,13 +207,7 @@ func (p *Proxy) handleClientPkt(pkt *gopacket.Packet) error {
 	switch {
 	case (*pkt).Layer(layers.LayerTypeTCP) != nil:
 		tcpLayer := (*pkt).Layer(layers.LayerTypeTCP).(*layers.TCP)
-		p.logger.Debug("TCP packet details is here",
-			zap.String("src", ipHeader.SrcIP.String()),
-			zap.Uint16("sport", uint16(tcpLayer.SrcPort)),
-			zap.String("dst", ipHeader.DstIP.String()),
-			zap.Uint16("dport", uint16(tcpLayer.DstPort)),
-			zap.Bool("syn", tcpLayer.SYN),
-			zap.Bool("ack", tcpLayer.ACK))
+
 		streamKey = fmt.Sprintf("tcp-%s:%d-%s:%d",
 			ipHeader.SrcIP, tcpLayer.SrcPort,
 			ipHeader.DstIP, tcpLayer.DstPort)
@@ -234,18 +228,18 @@ func (p *Proxy) handleClientPkt(pkt *gopacket.Packet) error {
 		return fmt.Errorf("unsupported protocol")
 	}
 
-  pdata := (*pkt).Data()
-  plen := uint32(len(pdata))
-  buff := make([]byte, 4+len(pdata))
-  binary.BigEndian.PutUint32(buff[:4], plen)
-  copy(buff[4:], pdata)
-
-	p.logger.Debug("Writing to NAT connection",
-		zap.Int("total_length", len(buff)),
-		zap.String("stream_key", streamKey),
-	)
-
-	_, err := p.natConn.Write(buff)
+  	pdata := (*pkt).Data()
+//  plen := uint32(len(pdata))
+//  buff := make([]byte, 4+len(pdata))
+//  binary.BigEndian.PutUint32(buff[:4], plen)
+//  copy(buff[4:], pdata)
+//
+//	p.logger.Debug("Writing to NAT connection",
+//		zap.Int("total_length", len(buff)),
+//		zap.String("stream_key", streamKey),
+//	)
+//
+	_, err := p.natConn.Write(pdata)
 	if err != nil {
 		p.logger.Error("Failed to write to NAT",
 			zap.Error(err),
@@ -253,32 +247,33 @@ func (p *Proxy) handleClientPkt(pkt *gopacket.Packet) error {
 		return fmt.Errorf("failed to write to NAT: %v", err)
 	}
 
-	p.logger.Info("Packet forwarded successfully to NAT", zap.Uint32("bytes", plen))
+	p.logger.Info("Packet forwarded successfully to NAT", zap.Int("bytes", len(pdata)))
 	return nil
 }
 
 func (p *Proxy) readNATPkt() {
-	//	reader := bufio.NewReader() // this will avoid busy-waiting
+//	reader := bufio.NewReader() // this will avoid busy-waiting
 	for {
 		select {
 		case <-p.done:
 			return
 		default:
 			p.logger.Info("READING FROM NAT")
-			var encapsulatedLen uint32
-			err := binary.Read(p.natConn, binary.BigEndian, &encapsulatedLen)
-			if err != nil {
-				if err == io.EOF {
-					p.logger.Info("Connection closed by NAT server")
-					return
-				}
-				p.logger.Warn("Error reading encapsulated length", zap.Error(err))
-				continue
-			}
+
+//			var encapsulatedLen uint32
+//			err := binary.Read(p.natConn, binary.BigEndian, &encapsulatedLen)
+//			if err != nil {
+//				if err == io.EOF {
+//					p.logger.Info("Connection closed by NAT server")
+//					return
+//				}
+//				p.logger.Warn("Error reading encapsulated length", zap.Error(err))
+//				continue
+//			}
 
 			// Read payload
-			payload := make([]byte, encapsulatedLen)
-			if _, err = io.ReadFull(p.natConn, payload); err != nil {
+			payload := make([]byte, 1500)
+			if _, err := io.ReadFull(p.natConn, payload); err != nil {
 				p.logger.Warn("Error reading payload", zap.Error(err))
 				continue
 			}
@@ -395,7 +390,8 @@ func (p *Proxy) forwardToClient(pkt *gopacket.Packet) {
 
 	ip, _ := ipv4Layer.(*layers.IPv4) // might need to check for ok here
 	logger.Info("Forwarding to Client",
-		zap.String("OriginalSRC", ip.SrcIP.String()), zap.String("DST", ip.DstIP.String()))
+		zap.String("OriginalSRC", ip.SrcIP.String()), zap.String("DST", ip.DstIP.String()),
+		zap.Int("Data: ", len((*pkt).Data())))
 	if err := p.wgHandle.WritePacketData((*pkt).Data()); err != nil {
 		logger.Warn("Error sending packet to client", zap.Error(err))
 	} else {
